@@ -20,14 +20,20 @@
 
 Запуск: `python app.py` → **http://0.0.0.0:8080** (доступ с других машин по IP хоста).
 
+Desktop-режим (Windows): `desktop_main.py` поднимает тот же FastAPI локально (`127.0.0.1:8080`) и открывает UI в окне `pywebview`; сборка в `.exe` через PyInstaller (см. `README.md`).
+
+**Docker:** в корне `Dockerfile` и `docker-compose.yml`. Данные не в образе: на хост монтируются `$HR121_DATA_DIR/.env`, `.../outputs`, `.../cache` (кэш весов локального Whisper через `XDG_CACHE_HOME=/data/cache`). Первый запуск: `./scripts/init-docker-data.sh`, затем `docker compose up -d --build`. Автовход: `deploy/macos/com.hr121.docker.plist.example` + `scripts/docker-start-on-login.sh` (см. `README.md`).
+
 ## Структура репозитория
 
 ```
 hr121-web/
 ├── app.py              # Вся серверная логика (API, промпты, пайплайн)
+├── desktop_main.py     # Desktop launcher (pywebview) для Windows
 ├── static/index.html   # SPA: логин, загрузка, промпты, результаты
-├── outputs/            # Сгенерированные transcript/report (gitignore)
+├── outputs/            # Сгенерированные файлы (gitignore): аудио для плеера, transcript.json, report.md, reports_catalog.json
 ├── requirements.txt
+├── requirements-desktop.txt  # desktop-зависимости (pywebview)
 ├── .env                # не коммитить (см. .env.example)
 ├── context.md          # этот файл
 ├── docs/               # воркфлоу, планы, ТЗ
@@ -69,16 +75,22 @@ hr121-web/
 | POST | `/api/process/url` | Обработка по ссылке (form `url`) |
 | POST | `/api/refine` | Доработка отчёта по комментарию (тело: `comment`, `current_report`) |
 | POST | `/api/export/docx` | Экспорт отчёта в Word (`report_text`) → `{ file }` |
+| GET | `/api/reports` | Список сохранённых отчётов (`?q=` — поиск по названию) |
+| GET | `/api/reports/{id}` | Загрузить отчёт в сессию + полный JSON (транскрипт, сегменты, отчёт, аудио URL) |
+| PATCH | `/api/reports/{id}` | Переименовать (`title`) и/или сохранить текст отчёта (`report`) |
+| DELETE | `/api/reports/{id}` | Удалить запись каталога и файлы (аудио, транскрипт, отчёт, docx при наличии) |
 | POST | `/api/email` | Письмо по транскрипции текущей сессии пользователя |
-| GET | `/api/settings/runtime` | Текущие режимы ИИ/транскрипции и флаги «ключ задан» (без раскрытия ключей) |
-| POST | `/api/settings/runtime` | Сохранение в `.env`: провайдер отчёта, режим Whisper, модель, опционально ключи |
+| GET | `/api/settings/runtime` | Текущие режимы ИИ/транскрипции, `openai_report_model`, флаги «ключ задан» |
+| POST | `/api/settings/runtime` | Сохранение в `.env`: провайдер, Whisper, `openai_report_model`, опционально ключи |
+| GET | `/api/settings/openai-report-models` | Модели OpenAI для отчёта: при `OPENAI_API_KEY` — живой список с `GET https://api.openai.com/v1/models`, иначе пресет в коде; ответ: `source`: `live` \| `preset`, опционально `hint` |
+| GET | `/api/settings/whisper-local-models` | Список имён `openai-whisper` и проверка скачанных `.pt` в кэше (`~/.cache/whisper` или `XDG_CACHE_HOME/whisper`) |
 
 Статика: `/static/*`. Файлы из `outputs/` отдаются маршрутом приложения с **поддержкой HTTP Range** (нужно для перемотки в `<audio>`); не через «голый» `StaticFiles` для `/outputs`.
 
 ## Поведение и ограничения
 
 - Промпты по умолчанию и пользовательские — в коде и в памяти (`user_prompts`); перезапуск сбрасывает кастомные промпты.
-- Данные сессии обработки (транскрипт, сегменты, отчёт) для письма и доработки — в памяти (`user_sessions`) по пользователю; перезапуск сервера сбрасывает.
+- Данные сессии обработки (транскрипт, сегменты, отчёт) для письма и доработки — в памяти (`user_sessions`) по пользователю; перезапуск сервера сбрасывает сессию, но **каждый обработанный файл** сохраняется в `outputs/`: `{id}_audio.mp3`, `{id}_transcript.json`, `{id}_report.md`, индекс `outputs/reports_catalog.json` (по пользователю). Из UI вкладка «История»: поиск, переименование, удаление, повторное открытие.
 - Загрузка файла ограничена `MAX_UPLOAD_MB` (в коде).
 - Обработка аудио: конвертация в mono mp3, нарезка чанками, склейка транскрипции с приблизительными таймкодами по чанкам.
 - CORS в коде: `allow_origins=["*"]` — при выводе в прод сужать при необходимости.

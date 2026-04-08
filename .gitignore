@@ -1,7 +1,41 @@
+# Local env and secrets
 .env
+.env.*
+!.env.example
+
+# Python virtual environments
 venv/
+.venv/
+env/
+
+# Runtime/project data
 outputs/
+data/
 logs/
+
+# Python cache and build artifacts
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.cache/
+
+# Packaging artifacts
+build/
+dist/
+*.egg-info/
+*.spec
+
+# Windows desktop build artifacts
+*.exe
+
+# IDE/editor and OS files
+.idea/
+.vscode/
 .DS_Store

@@ -1,0 +1,22 @@
+# Данные не в образе: каталог HR121_DATA_DIR на хосте (по умолчанию ./data рядом с compose).
+# Пересборка образа не трогает .env, outputs и кэш Whisper.
+#
+# Первый запуск: ./scripts/init-docker-data.sh
+# Запуск:        docker compose up -d --build
+# Логи:          docker compose logs -f
+
+services:
+  hr121-web:
+    build: .
+    image: hr121-web:local
+    container_name: hr121-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Явно указываем кэш (совпадает с Dockerfile).
+      XDG_CACHE_HOME: /data/cache
+    volumes:
+      - ${HR121_DATA_DIR:-./data}/.env:/app/.env
+      - ${HR121_DATA_DIR:-./data}/outputs:/app/outputs
+      - ${HR121_DATA_DIR:-./data}/cache:/data/cache

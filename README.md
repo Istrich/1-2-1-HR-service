@@ -7,7 +7,7 @@
 
 - Загрузка аудио/видео-файлов или обработка по ссылке (Google Drive, Dropbox)
 - Транскрипция с таймкодами: локально **openai-whisper** (по умолчанию, см. `WHISPER_MODEL` в `.env`) или через API OpenAI (`WHISPER_BACKEND=api`)
-- Интерфейс workspace: плеер, транскрипт с сегментами, отчёт, доработка отчёта по комментарию, экспорт в Word
+- Интерфейс workspace: плеер, транскрипт с сегментами, отчёт, доработка отчёта по комментарию, экспорт в Word; вкладка «История» — сохранённые отчёты (поиск, переименование, удаление, повторное открытие)
 - Генерация структурированного HR-отчёта через GPT
 - Формирование Word-документа (.docx) по кнопке экспорта
 - Генерация письма с фиксацией договорённостей
@@ -106,6 +106,51 @@ launchctl unload ~/Library/LaunchAgents/com.hr121.web.plist
 launchctl load ~/Library/LaunchAgents/com.hr121.web.plist
 ```
 
+### 5. Docker: образ, данные вне контейнера, автозапуск
+
+Нужны [Docker Desktop для Mac](https://www.docker.com/products/docker-desktop/) (или Colima с `docker compose`). Отчёты, каталог истории, ключи из UI и кэш весов **локального** Whisper хранятся в каталоге на Mac, а не в слое образа: при `docker compose build` и пересоздании контейнера они не пропадают.
+
+**Каталог данных** задаётся переменной `HR121_DATA_DIR` (по умолчанию `./data` рядом с `docker-compose.yml`):
+
+| Путь на хосте | Назначение |
+|---------------|------------|
+| `$HR121_DATA_DIR/.env` | Секреты и настройки (тот же формат, что `.env.example`) |
+| `$HR121_DATA_DIR/outputs/` | Аудио, транскрипты, отчёты, `reports_catalog.json` |
+| `$HR121_DATA_DIR/cache/` | Кэш Whisper (`XDG_CACHE_HOME`), чтобы не качать `.pt` заново |
+
+Первый запуск:
+
+```bash
+cd /path/to/hr121-web
+./scripts/init-docker-data.sh    # создаёт data/.env из .env.example и каталоги
+# отредактируйте data/.env
+docker compose up -d --build
+```
+
+Приложение: **http://localhost:8080**. Остановка: `docker compose down` (данные на диске остаются).
+
+Чтобы **при входе в систему** поднимался контейнер (после старта Docker), включите в Docker Desktop опцию вроде *Start Docker Desktop when you log in*, затем установите LaunchAgent:
+
+```bash
+REPO="$HOME/hr121-web"   # путь к клону
+cp "$REPO/deploy/macos/com.hr121.docker.plist.example" ~/Library/LaunchAgents/com.hr121.docker.plist
+sed -i '' "s|/ABSOLUTE/PATH/TO/hr121-web|$REPO|g" ~/Library/LaunchAgents/com.hr121.docker.plist
+launchctl load ~/Library/LaunchAgents/com.hr121.docker.plist
+```
+
+Скрипт `scripts/docker-start-on-login.sh` ждёт доступности демона Docker и выполняет `docker compose up -d`. Логи: `logs/docker-launchd.log` и `logs/docker-launchd.err.log`.
+
+Постоянный каталог вне репозитория (например `~/Library/Application Support/hr121-web`):
+
+```bash
+export HR121_DATA_DIR="$HOME/Library/Application Support/hr121-web"
+mkdir -p "$HR121_DATA_DIR"
+./scripts/init-docker-data.sh
+HR121_DATA_DIR="$HR121_DATA_DIR" docker compose up -d --build
+```
+
+Если раньше использовали `.env` в корне репозитория, скопируйте его: `cp .env "$HR121_DATA_DIR/.env"`.
+
 ## Конфигурация (.env)
 
 | Переменная | Описание | Обязательно |
@@ -115,14 +160,78 @@ launchctl load ~/Library/LaunchAgents/com.hr121.web.plist
 | `SECRET_KEY` | Ключ для JWT-токенов (генерируется автоматически) | Нет |
 | `JWT_EXPIRE_HOURS` | Время жизни токена авторизации (по умолч. 24ч) | Нет |
 
+## Windows Desktop (.exe)
+
+Текущий веб-режим не меняется: `python app.py` работает как раньше.  
+Desktop-режим — это отдельная обёртка над тем же приложением.
+
+### 0) Установка системных зависимостей (опционально, через bat)
+
+```powershell
+.\bootstrap_windows_env.bat
+```
+
+Скрипт пытается установить:
+- Python 3.11 (`winget`, пакет `Python.Python.3.11`)
+- ffmpeg (`winget`, пакет `Gyan.FFmpeg`, fallback `BtbN.FFmpeg.GPL`)
+
+Если PATH обновился не сразу — закройте терминал и откройте новый.
+
+### 1) Подготовка окружения на Windows
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-desktop.txt
+```
+
+### 2) Локальный запуск в desktop-окне
+
+```powershell
+python desktop_main.py
+```
+
+### 3) Сборка `.exe` (PyInstaller, onedir)
+
+```powershell
+pyinstaller --noconfirm --windowed --onedir --name HR121Desktop `
+  --add-data "static;static" `
+  --add-data "outputs;outputs" `
+  desktop_main.py
+```
+
+Готовый исполняемый файл: `dist\HR121Desktop\HR121Desktop.exe`.
+
+Или одной командой через bat-скрипт из корня проекта:
+
+```powershell
+.\build_windows_exe.bat
+```
+
+Запуск собранного desktop-приложения:
+
+```powershell
+.\run_windows_desktop.bat
+```
+
+Примечания:
+- `onedir` выбран специально для надёжной работы со `static/` и `outputs/`.
+- Если окно не открывается на некоторых системах, установите [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
+- `.env` храните рядом с приложением/рабочей директорией, секреты не вшивайте в репозиторий.
+
 ## Структура проекта
 
 ```
 hr121-web/
 ├── app.py               # FastAPI-сервер (основная логика)
+├── Dockerfile           # образ приложения (данные — тома в compose)
+├── docker-compose.yml   # тома: .env, outputs, кэш Whisper на хосте
 ├── static/
 │   └── index.html       # React SPA (фронтенд)
-├── outputs/             # Сгенерированные файлы (транскрипции, отчёты)
+├── outputs/             # при запуске без Docker; в Docker — каталог из HR121_DATA_DIR
+├── data/                # каталог по умолчанию для Docker (в .gitignore)
+├── scripts/             # init-docker-data.sh, docker-start-on-login.sh
+├── deploy/macos/        # пример plist для автозапуска Docker-стека
 ├── docs/                # Воркфлоу, планы, шаблоны ТЗ
 ├── requirements.txt
 ├── .env                 # Конфиг (не коммитить!)

@@ -68,10 +68,32 @@ textarea{resize:vertical;min-height:120px;font-family:var(--mono);font-size:.8re
 .chip{padding:.3rem .7rem;border-radius:20px;font-size:.75rem;font-weight:500;background:var(--bg-e);color:var(--tx2);border:1px solid var(--brd);cursor:pointer;transition:all .12s}
 .chip:hover{border-color:var(--brd-h);color:var(--tx)}
 .chip.active{background:var(--am-dim);color:var(--am);border-color:rgba(212,160,82,.25)}
+.chip:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
 .user-pill{display:flex;align-items:center;gap:.4rem;padding:.3rem .7rem .3rem .35rem;border-radius:20px;background:var(--bg-e);border:1px solid var(--brd);font-size:.78rem;color:var(--tx2)}
 .user-dot{width:22px;height:22px;border-radius:50%;background:var(--am-dim);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;color:var(--am);text-transform:uppercase}
+.main-tabs{display:flex;gap:0;padding:0 1.2rem;background:var(--bg);border-bottom:1px solid var(--brd);flex-shrink:0}
+.main-tabs button{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--tx2);padding:.75rem 1rem;font-size:.88rem;cursor:pointer;font-family:var(--f);font-weight:500}
+.main-tabs button:hover{color:var(--tx)}
+.main-tabs button.active{color:var(--am);border-bottom-color:var(--am)}
 .main-area{flex:1;display:flex;flex-direction:column;min-height:0;overflow-y:auto}
 .main-area--workspace{overflow:hidden}
+.history-page{flex:1;display:flex;flex-direction:column;min-height:0;padding:1rem 1.2rem;max-width:900px;margin:0 auto;width:100%}
+.history-page h2{font-size:1.15rem;font-weight:600;margin-bottom:.6rem;letter-spacing:-.02em}
+.history-toolbar{display:flex;gap:.6rem;margin-bottom:1rem;align-items:center}
+.history-toolbar input[type="search"]{flex:1;max-width:320px;padding:.5rem .7rem;font-size:.85rem;background:var(--bg-e);border:1px solid var(--brd);border-radius:var(--r);color:var(--tx)}
+.history-list{flex:1;min-height:0;overflow-y:auto;border:1px solid var(--brd);border-radius:var(--r2);background:var(--bg-s)}
+.history-row{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;border-bottom:1px solid var(--brd);cursor:pointer;transition:background .1s}
+.history-row:last-child{border-bottom:none}
+.history-row:hover{background:rgba(255,255,255,.02)}
+.history-row-main{flex:1;min-width:0}
+.history-row-title-line{display:flex;align-items:flex-start;gap:.45rem;min-width:0;margin-bottom:.25rem}
+.history-row-title-line .history-row-title{flex:1;min-width:0;margin-bottom:0}
+.history-row-edit-btn{flex-shrink:0;padding:.35rem .55rem!important;align-self:flex-start;margin:0;line-height:1.2;font-size:.78rem;white-space:nowrap}
+.history-row-title{font-weight:600;font-size:.9rem;color:var(--tx);word-break:break-word}
+.history-row-meta{font-size:.75rem;color:var(--tx3);font-family:var(--mono)}
+.history-row-actions{display:flex;flex-shrink:0;gap:.35rem;align-items:center}
+.history-row input.title-edit{width:100%;padding:.35rem .5rem;font-size:.88rem;background:var(--bg);border:1px solid var(--am);border-radius:var(--r);color:var(--tx)}
+.history-empty{padding:2rem;text-align:center;color:var(--tx3);font-size:.9rem}
 
 /* ====== UPLOAD ====== */
 .upload-page{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem}
@@ -178,6 +200,28 @@ mark.search-hit-current{background:var(--am);color:#0a0a0a}
 .radio-row{display:flex;flex-wrap:wrap;gap:.6rem 1.2rem;margin:.5rem 0 .8rem}
 .radio-row label{display:flex;align-items:center;gap:.35rem;cursor:pointer;font-size:.85rem;color:var(--tx2)}
 .radio-row input{accent-color:var(--am)}
+select.whisper-select{width:100%;padding:.5rem .65rem;font-size:.85rem;background:var(--bg-e);border:1px solid var(--brd);border-radius:var(--r);color:var(--tx);font-family:var(--f);outline:none;cursor:pointer}
+select.whisper-select:focus{border-color:var(--am);box-shadow:0 0 0 2px var(--am-dim)}
+select.whisper-select option{background:var(--bg-e);color:var(--tx)}
+.overlay-body .settings-api-key{
+  width:100%;padding:.6rem .8rem;background:var(--bg) !important;color:var(--tx) !important;
+  border:1px solid var(--brd);border-radius:var(--r);font-size:.92rem;outline:none;transition:border .15s,box-shadow .15s;
+}
+.overlay-body .settings-api-key:focus{border-color:var(--am);box-shadow:0 0 0 2px var(--am-dim)}
+.overlay-body .settings-api-key:-webkit-autofill,
+.overlay-body .settings-api-key:-webkit-autofill:hover,
+.overlay-body .settings-api-key:-webkit-autofill:focus,
+.overlay-body .settings-api-key:-webkit-autofill:active{
+  -webkit-box-shadow:0 0 0 1000px var(--bg) inset !important;
+  box-shadow:0 0 0 1000px var(--bg) inset !important;
+  -webkit-text-fill-color:var(--tx) !important;
+  caret-color:var(--tx);
+  border:1px solid var(--brd);
+}
+.overlay-body .settings-api-key:-webkit-autofill:focus{
+  -webkit-box-shadow:0 0 0 1000px var(--bg) inset, 0 0 0 2px var(--am-dim) !important;
+  border-color:var(--am);
+}
 
 /* ====== TOAST ====== */
 .toast{position:fixed;bottom:1.5rem;right:1.5rem;padding:.65rem 1.1rem;background:var(--gn-dim);color:var(--gn);border:1px solid rgba(74,222,128,.2);border-radius:var(--r);font-size:.82rem;z-index:999;animation:fadeup .3s ease}
@@ -210,6 +254,25 @@ async function apiFetch(p,o={}){
   if(r.status===401){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(USER_KEY);localStorage.removeItem('hr_t');localStorage.removeItem('hr_u');location.reload();throw new Error('401')}
   return r;
 }
+function apiErrDetail(d){
+  if(!d||d.detail==null)return 'Ошибка';
+  const x=d.detail;
+  if(typeof x==='string')return x;
+  if(Array.isArray(x))return x.map(e=>e.msg||JSON.stringify(e)).join('; ');
+  return String(x);
+}
+/** Читает тело ответа один раз; при не-JSON (часто 500 text/plain) показывает текст, не падая на JSON.parse. */
+async function fetchJsonResponse(r){
+  const text=await r.text();
+  let data;
+  try{
+    data=JSON.parse(text);
+  }catch(_){
+    throw new Error((text||'').trim().slice(0,400)||'Некорректный ответ сервера');
+  }
+  if(!r.ok)throw new Error(apiErrDetail(data)||'Ошибка');
+  return data;
+}
 
 /* ===== SVG Icons ===== */
 const I={
@@ -219,7 +282,6 @@ const I={
   dl:<svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
   send:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
   x:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-  gear:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
   mail:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>,
   check:<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
   back:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
@@ -246,6 +308,22 @@ function parseBold(t){
 }
 
 function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function formatBytes(n){
+  if(n==null||n===undefined||!isFinite(Number(n)))return '—';
+  let v=Number(n);const u=['Б','КБ','МБ','ГБ','ТБ'];let i=0;
+  while(v>=1024&&i<u.length-1){v/=1024;i++}
+  return `${i===0?v:v.toFixed(1)} ${u[i]}`;
+}
+
+function formatReportDate(iso){
+  if(!iso)return '—';
+  try{
+    const d=new Date(iso);
+    if(Number.isNaN(d.getTime()))return iso;
+    return d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }catch(_){return iso}
+}
 
 function buildTranscriptMatchMeta(segments,q){
   const qn=(q||'').trim();
@@ -330,7 +408,7 @@ function Login({onLogin}){
     e.preventDefault();setErr('');setLd(true);
     try{
       const r=await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
-      const d=await r.json();if(!r.ok)throw new Error(d.detail||'Ошибка');
+      const d=await fetchJsonResponse(r);
       localStorage.setItem(TOKEN_KEY,d.token);localStorage.setItem(USER_KEY,d.username);onLogin(d.username);
     }catch(e){setErr(e.message)}finally{setLd(false)}
   }
@@ -633,8 +711,7 @@ function Workspace({data,onReset}){
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({comment,current_report:report}),
       });
-      const d=await r.json();
-      if(!r.ok)throw new Error(d.detail||'Ошибка');
+      const d=await fetchJsonResponse(r);
       setReport(d.report);
       setRefineHistory(h=>[...h,{role:'ai',text:'Отчёт обновлён'}]);
       setExportLink('');
@@ -650,8 +727,7 @@ function Workspace({data,onReset}){
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({report_text:report}),
       });
-      const d=await r.json();
-      if(!r.ok)throw new Error(d.detail||'Ошибка');
+      const d=await fetchJsonResponse(r);
       setExportLink(d.file);
       showToast('Word-документ готов');
     }catch(e){showToast('Ошибка: '+e.message)}
@@ -662,13 +738,31 @@ function Workspace({data,onReset}){
     setEmailLoading(true);
     try{
       const r=await apiFetch('/api/email',{method:'POST'});
-      const d=await r.json();if(!r.ok)throw new Error(d.detail);
+      const d=await fetchJsonResponse(r);
       setEmailText(d.email_text);
     }catch(e){showToast('Ошибка: '+e.message)}
     finally{setEmailLoading(false)}
   }
 
   function showToast(m){setToast(m);setTimeout(()=>setToast(''),3000)}
+
+  const reportId=data.report_id||data.session_id;
+
+  async function persistReportBody(){
+    if(!reportId)return;
+    try{
+      const r=await apiFetch('/api/reports/'+encodeURIComponent(reportId),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({report})});
+      await fetchJsonResponse(r);
+    }catch(e){showToast('Не сохранено: '+e.message)}
+  }
+
+  async function toggleReportEdit(){
+    if(reportEditMode){
+      await persistReportBody();
+      setReportQ('');
+    }
+    setReportEditMode(m=>!m);
+  }
 
   const tq=(transcriptQ||'').trim();
   const rq=(reportQ||'').trim();
@@ -711,8 +805,9 @@ function Workspace({data,onReset}){
       <div className="panel" style={{borderRight:'none'}}>
         <div className="panel-head">
           <h3>{emailText?'Письмо':'Отчёт'}</h3>
+          {!emailText&&data.title&&<span className="badge" style={{marginLeft:'.35rem',maxWidth:'min(38vw,260px)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500}} title={data.title}>{data.title}</span>}
           <div style={{marginLeft:'auto',display:'flex',gap:'.4rem',alignItems:'center'}}>
-            {!emailText&&<button type="button" className="btn btn-g" onClick={()=>{setReportEditMode(m=>{if(!m)setReportQ('');return !m;});}} title={reportEditMode?'Просмотр с оформлением':'Редактировать текст отчёта'}>
+            {!emailText&&<button type="button" className="btn btn-g" onClick={()=>void toggleReportEdit()} title={reportEditMode?'Просмотр с оформлением':'Редактировать текст отчёта'}>
               {reportEditMode?'Просмотр':'Редактировать'}
             </button>}
             {!emailText&&<button type="button" className="btn btn-g" onClick={doEmail} disabled={emailLoading} title="Письмо с договорённостями">
@@ -755,7 +850,7 @@ function Workspace({data,onReset}){
                 )}
               </>
             ):reportEditMode?(
-              <textarea className="report-editarea" value={report} onChange={e=>setReport(e.target.value)} spellCheck={false} placeholder="Текст отчёта (Markdown). Можно править вручную, затем отправить запрос на доработку через ИИ ниже."/>
+              <textarea className="report-editarea" value={report} onChange={e=>setReport(e.target.value)} onBlur={()=>void persistReportBody()} spellCheck={false} placeholder="Текст отчёта (Markdown). Можно править вручную, затем отправить запрос на доработку через ИИ ниже."/>
             ):rq?(
               <>
                 <p className="report-search-hint">При активном поиске показан текст отчёта с подсветкой (без оформления markdown).</p>
@@ -878,6 +973,11 @@ function ApiSettingsModal({onClose}){
   const[reportAi,setReportAi]=useState('openai');
   const[whisperBack,setWhisperBack]=useState('local');
   const[whisperModel,setWhisperModel]=useState('small');
+  const[whisperLocal,setWhisperLocal]=useState(null);
+  const[openaiReportModel,setOpenaiReportModel]=useState('gpt-4o');
+  const[openaiPresets,setOpenaiPresets]=useState(null);
+  const[openaiSource,setOpenaiSource]=useState(null);
+  const[openaiHint,setOpenaiHint]=useState(null);
   const[openaiKey,setOpenaiKey]=useState('');
   const[deepseekKey,setDeepseekKey]=useState('');
   const[openaiKeySet,setOpenaiKeySet]=useState(false);
@@ -885,15 +985,37 @@ function ApiSettingsModal({onClose}){
   const[saving,setSaving]=useState(false);
   const[msg,setMsg]=useState('');
 
+  function refreshWhisperCache(){
+    setWhisperLocal(null);
+    apiFetch('/api/settings/whisper-local-models').then(r=>r.json()).then(setWhisperLocal).catch(()=>setWhisperLocal({error:true}));
+  }
+
   useEffect(()=>{
     apiFetch('/api/settings/runtime').then(r=>r.json()).then(d=>{
       setReportAi(d.report_ai_provider||'openai');
       setWhisperBack(d.whisper_backend||'local');
       setWhisperModel(d.whisper_model||'small');
+      setOpenaiReportModel(d.openai_report_model||'gpt-4o');
       setOpenaiKeySet(!!d.openai_key_set);
       setDeepseekKeySet(!!d.deepseek_key_set);
     });
+    apiFetch('/api/settings/whisper-local-models').then(r=>r.json()).then(setWhisperLocal).catch(()=>setWhisperLocal({error:true}));
+    apiFetch('/api/settings/openai-report-models').then(r=>r.json()).then(d=>{
+      setOpenaiPresets(d.models||[]);
+      setOpenaiSource(d.source||'preset');
+      setOpenaiHint(d.hint||null);
+    }).catch(()=>{setOpenaiPresets([]);setOpenaiSource('preset');setOpenaiHint('fetch_failed')});
   },[]);
+
+  function refreshOpenaiModels(opts){
+    const clear=opts&&opts.clear!==false;
+    if(clear)setOpenaiPresets(null);
+    apiFetch('/api/settings/openai-report-models').then(r=>r.json()).then(d=>{
+      setOpenaiPresets(d.models||[]);
+      setOpenaiSource(d.source||'preset');
+      setOpenaiHint(d.hint||null);
+    }).catch(()=>{setOpenaiPresets([]);setOpenaiSource('preset');setOpenaiHint('fetch_failed')});
+  }
 
   async function saveAll(){
     setSaving(true);setMsg('');
@@ -902,6 +1024,7 @@ function ApiSettingsModal({onClose}){
         report_ai_provider:reportAi,
         whisper_backend:whisperBack,
         whisper_model:whisperModel.trim()||'small',
+        openai_report_model:(openaiReportModel||'gpt-4o').trim()||'gpt-4o',
       };
       if(openaiKey.trim()) body.openai_api_key=openaiKey.trim();
       if(deepseekKey.trim()) body.deepseek_api_key=deepseekKey.trim();
@@ -910,13 +1033,19 @@ function ApiSettingsModal({onClose}){
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(body),
       });
-      if(!r.ok){const d=await r.json();throw new Error(d.detail||'Ошибка сохранения')}
+      await fetchJsonResponse(r);
       setOpenaiKey('');setDeepseekKey('');
       const r2=await apiFetch('/api/settings/runtime');
-      const d2=await r2.json();
+      const d2=await fetchJsonResponse(r2);
       setOpenaiKeySet(!!d2.openai_key_set);
       setDeepseekKeySet(!!d2.deepseek_key_set);
+      if(d2.openai_report_model)setOpenaiReportModel(d2.openai_report_model);
       setMsg('Сохранено в .env');
+      apiFetch('/api/settings/openai-report-models').then(r=>r.json()).then(d=>{
+        setOpenaiPresets(d.models||[]);
+        setOpenaiSource(d.source||'preset');
+        setOpenaiHint(d.hint||null);
+      }).catch(()=>{});
       setTimeout(()=>setMsg(''),2500);
     }catch(e){setMsg(e.message)}
     finally{setSaving(false)}
@@ -942,19 +1071,82 @@ function ApiSettingsModal({onClose}){
             </div>
             {whisperBack==='local'&&(
               <div className="fld">
-                <label>Модель (tiny / base / small / medium…)</label>
-                <input type="text" value={whisperModel} onChange={e=>setWhisperModel(e.target.value)} placeholder="small"/>
+                <label>Локальная модель</label>
+                {whisperLocal===null&&<p className="hint" style={{display:'flex',alignItems:'center',gap:'.45rem'}}><span className="spinner"/> Загрузка списка и проверка кэша…</p>}
+                {whisperLocal&&whisperLocal.models&&whisperLocal.models.length>0&&!whisperLocal.error?(
+                  <>
+                    <select className="whisper-select" value={whisperModel} onChange={e=>setWhisperModel(e.target.value)}>
+                      {!(whisperLocal.models.some(m=>m.id===whisperModel))&&whisperModel&&<option value={whisperModel}>{whisperModel} (текущее значение)</option>}
+                      {whisperLocal.models.map(m=>(
+                        <option key={m.id} value={m.id}>
+                          {m.id} — {m.downloaded?(`в кэше${m.size_bytes!=null?` (${formatBytes(m.size_bytes)})`:''}`):'не в кэше (скачается при первом запуске)'}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="hint" style={{fontSize:'.72rem',marginTop:'.35rem'}}>
+                      Уникальных файлов .pt в кэше: {whisperLocal.unique_pt_downloaded ?? 0} из {whisperLocal.unique_pt_total ?? 0} · вариантов имён в списке: {whisperLocal.downloaded_count ?? 0} из {whisperLocal.total_count ?? whisperLocal.models.length}
+                    </p>
+                    {whisperLocal.cache_dir&&<p className="hint" style={{fontSize:'.68rem',opacity:.9}}>Каталог кэша: {whisperLocal.cache_dir}</p>}
+                    <button type="button" className="btn btn-g" style={{fontSize:'.75rem',marginTop:'.35rem'}} onClick={refreshWhisperCache}>Обновить проверку кэша</button>
+                  </>
+                ):whisperLocal!==null?(
+                  <>
+                    <p className="hint" style={{fontSize:'.72rem',marginBottom:'.4rem'}}>
+                      {whisperLocal.error==='import_failed'?'Пакет openai-whisper на сервере недоступен — укажите имя модели вручную.':'Не удалось получить список моделей — введите имя вручную (tiny, base, small, medium…).'}
+                    </p>
+                    <input type="text" value={whisperModel} onChange={e=>setWhisperModel(e.target.value)} placeholder="small"/>
+                  </>
+                ):null}
               </div>
             )}
           </div>
 
           <div className="settings-block">
             <h4>Отчёт и письмо</h4>
-            <p className="hint">Используется Chat Completions: OpenAI (gpt-4o по умолчанию) или DeepSeek.</p>
+            <p className="hint">Используется Chat Completions: OpenAI или DeepSeek.</p>
             <div className="radio-row">
               <label><input type="radio" name="rai" checked={reportAi==='openai'} onChange={()=>setReportAi('openai')}/> OpenAI</label>
               <label><input type="radio" name="rai" checked={reportAi==='deepseek'} onChange={()=>setReportAi('deepseek')}/> DeepSeek</label>
             </div>
+            {reportAi==='openai'&&(
+              <div className="fld">
+                <label>Модель OpenAI</label>
+                {openaiPresets===null&&<p className="hint" style={{display:'flex',alignItems:'center',gap:'.45rem'}}><span className="spinner"/> Загрузка списка моделей…</p>}
+                {openaiPresets&&openaiPresets.length>0?(
+                  <>
+                    <select className="whisper-select" value={openaiReportModel} onChange={e=>setOpenaiReportModel(e.target.value)}>
+                      {!(openaiPresets.some(m=>m.id===openaiReportModel))&&openaiReportModel&&<option value={openaiReportModel}>{openaiReportModel} (текущее значение)</option>}
+                      {openaiPresets.map(m=>(
+                        <option key={m.id} value={m.id}>{m.id}{m.label&&m.label!==m.id?` — ${m.label}`:''}</option>
+                      ))}
+                    </select>
+                    <p className="hint" style={{fontSize:'.72rem',marginTop:'.35rem'}}>
+                      {openaiSource==='live'
+                        ? 'Список с OpenAI API (GET /v1/models): модели, доступные вашему ключу в .env.'
+                        : openaiHint==='no_key'
+                          ? 'Ключ OpenAI не задан на сервере — показан запасной список. Сохраните ключ в .env и нажмите «Обновить список».'
+                          : openaiHint==='invalid_key'
+                            ? 'OpenAI отклонил ключ (проверьте OPENAI_API_KEY в .env). Показан запасной список.'
+                            : openaiHint==='rate_limit'
+                              ? 'Лимит запросов к OpenAI (429). Повторите позже — показан запасной список.'
+                              : openaiHint==='connection'
+                                ? 'Нет соединения с api.openai.com — проверьте сеть и прокси. Показан запасной список.'
+                                : openaiHint==='empty_filtered'
+                                  ? 'Ответ API не содержит подходящих chat-моделей после отбора — показан запасной список; при необходимости введите id вручную.'
+                                  : openaiHint==='fetch_failed'
+                                    ? 'Не удалось получить список с OpenAI — показан запасной список. Смотрите логи сервера.'
+                                    : 'Запасной список пресетов в коде.'}
+                    </p>
+                    <button type="button" className="btn btn-g" style={{fontSize:'.75rem',marginTop:'.35rem'}} onClick={refreshOpenaiModels}>Обновить список с OpenAI</button>
+                  </>
+                ):openaiPresets!==null?(
+                  <>
+                    <input type="text" value={openaiReportModel} onChange={e=>setOpenaiReportModel(e.target.value)} placeholder="gpt-4o"/>
+                    <p className="hint" style={{fontSize:'.72rem',marginTop:'.35rem'}}>Список пресетов недоступен — введите id модели вручную.</p>
+                  </>
+                ):null}
+              </div>
+            )}
           </div>
 
           <div className="settings-block">
@@ -962,17 +1154,114 @@ function ApiSettingsModal({onClose}){
             <p className="hint">Сохраняются в файл .env на сервере. Пустое поле — не менять сохранённый ключ.</p>
             <div className="fld">
               <label>OpenAI {openaiKeySet&&<span style={{color:'var(--gn)',fontSize:'.72rem'}}> (ключ задан)</span>}</label>
-              <input type="password" autoComplete="off" value={openaiKey} onChange={e=>setOpenaiKey(e.target.value)} placeholder={openaiKeySet?'Новый ключ или оставьте пустым':'sk-…'}/>
+              <input type="password" className="settings-api-key" autoComplete="new-password" value={openaiKey} onChange={e=>setOpenaiKey(e.target.value)} placeholder={openaiKeySet?'Новый ключ или оставьте пустым':'sk-…'}/>
             </div>
             <div className="fld">
               <label>DeepSeek {deepseekKeySet&&<span style={{color:'var(--gn)',fontSize:'.72rem'}}> (ключ задан)</span>}</label>
-              <input type="password" autoComplete="off" value={deepseekKey} onChange={e=>setDeepseekKey(e.target.value)} placeholder={deepseekKeySet?'Новый ключ или оставьте пустым':'sk-…'}/>
+              <input type="password" className="settings-api-key" autoComplete="new-password" value={deepseekKey} onChange={e=>setDeepseekKey(e.target.value)} placeholder={deepseekKeySet?'Новый ключ или оставьте пустым':'sk-…'}/>
             </div>
             <div className="prompt-actions">
               <button className="btn btn-am" onClick={saveAll} disabled={saving}>{saving?<span className="spinner"/>:'Сохранить в .env'}</button>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== HISTORY ===== */
+function HistoryPage({onOpen,refreshKey}){
+  const[items,setItems]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[search,setSearch]=useState('');
+  const[editing,setEditing]=useState(null);
+  const[busy,setBusy]=useState(null);
+
+  useEffect(()=>{
+    let cancelled=false;
+    const id=setTimeout(()=>{
+      (async()=>{
+        setLoading(true);
+        try{
+          const r=await apiFetch('/api/reports?q='+encodeURIComponent(search));
+          const d=await fetchJsonResponse(r);
+          if(!cancelled)setItems(d.items||[]);
+        }catch(_){if(!cancelled)setItems([])}
+        finally{if(!cancelled)setLoading(false)}
+      })();
+    },search?280:0);
+    return()=>{cancelled=true;clearTimeout(id)};
+  },[search,refreshKey]);
+
+  async function commitRename(){
+    if(!editing)return;
+    const t=editing.value.trim();
+    const prev=items.find(x=>x.id===editing.id);
+    if(!t){setEditing(null);return}
+    if(prev&&prev.title===t){setEditing(null);return}
+    setBusy(editing.id);
+    try{
+      const r=await apiFetch('/api/reports/'+encodeURIComponent(editing.id),{
+        method:'PATCH',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({title:t}),
+      });
+      await fetchJsonResponse(r);
+      setItems(list=>list.map(x=>x.id===editing.id?{...x,title:t}:x));
+      setEditing(null);
+    }catch(e){alert(e.message)}
+    finally{setBusy(null)}
+  }
+
+  async function deleteOne(it){
+    if(!confirm('Удалить отчёт «'+(it.title||'без названия')+'» и все связанные файлы (аудио, транскрипт, отчёт)?'))return;
+    setBusy(it.id);
+    try{
+      const r=await apiFetch('/api/reports/'+encodeURIComponent(it.id),{method:'DELETE'});
+      await fetchJsonResponse(r);
+      setItems(list=>list.filter(x=>x.id!==it.id));
+    }catch(e){alert(e.message)}
+    finally{setBusy(null)}
+  }
+
+  return(
+    <div className="history-page">
+      <h2>История отчётов</h2>
+      <div className="history-toolbar">
+        <input type="search" placeholder="Поиск по названию…" value={search} onChange={e=>setSearch(e.target.value)} autoComplete="off"/>
+        {loading&&<span className="spinner" style={{opacity:.7}}/>}
+      </div>
+      <div className="history-list">
+        {!loading&&items.length===0&&<div className="history-empty">Нет сохранённых отчётов. Сформируйте отчёт на вкладке «Формирование отчёта».</div>}
+        {items.map(it=>(
+          <div key={it.id} className="history-row">
+            <div className="history-row-main" role="button" tabIndex={0}
+              onKeyDown={e=>{if((e.key==='Enter'||e.key===' ')&&!(editing&&editing.id===it.id)){e.preventDefault();onOpen(it.id)}}}
+              onClick={()=>{if(editing&&editing.id===it.id)return;onOpen(it.id)}}>
+              {editing&&editing.id===it.id?(
+                <input className="title-edit" value={editing.value}
+                  onChange={e=>setEditing(ed=>({...ed,value:e.target.value}))}
+                  onClick={e=>e.stopPropagation()}
+                  onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commitRename()}}}
+                  onBlur={()=>commitRename()}
+                  autoFocus/>
+              ):(
+                <>
+                  <div className="history-row-title-line">
+                    <div className="history-row-title">{it.title||'Без названия'}</div>
+                    <button type="button" className="btn btn-g history-row-edit-btn" title="Переименовать"
+                      onClick={e=>{e.stopPropagation();setEditing({id:it.id,value:it.title||''})}}>Редактировать</button>
+                  </div>
+                  <div className="history-row-meta">{formatReportDate(it.created_at)} · Аудио: {formatBytes(it.audio_bytes)}</div>
+                </>
+              )}
+            </div>
+            <div className="history-row-actions">
+              <button type="button" className="btn btn-s" disabled={busy===it.id} onClick={e=>{e.stopPropagation();onOpen(it.id)}}>Открыть</button>
+              <button type="button" className="btn btn-rd" disabled={busy===it.id} onClick={e=>{e.stopPropagation();deleteOne(it)}}>Удалить</button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -987,10 +1276,13 @@ function App(){
   const[error,setError]=useState('');
   const[settings,setSettings]=useState(false);
   const[apiSettings,setApiSettings]=useState(false);
+  const[mainTab,setMainTab]=useState('form');
+  const[historyRefresh,setHistoryRefresh]=useState(0);
 
   function logout(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(USER_KEY);localStorage.removeItem('hr_t');localStorage.removeItem('hr_u');setUser(null)}
 
   async function handleProcess({type,file,url}){
+    setMainTab('form');
     setView('processing');setStep(0);setError('');
     const timer=setInterval(()=>setStep(s=>Math.min(s+1,3)),7000);
     try{
@@ -1002,9 +1294,9 @@ function App(){
         const fd=new FormData();fd.append('url',url);
         r=await apiFetch('/api/process/url',{method:'POST',body:fd});
       }
-      if(!r.ok){const d=await r.json();throw new Error(d.detail||'Ошибка обработки');}
-      const data=await r.json();
+      const data=await fetchJsonResponse(r);
       setWsData(data);setView('workspace');
+      setHistoryRefresh(k=>k+1);
     }catch(e){
       setError(e.message);setView('upload');
     }finally{
@@ -1012,17 +1304,44 @@ function App(){
     }
   }
 
-  function handleReset(){setView('upload');setWsData(null);setError('')}
+  function handleReset(){setView('upload');setWsData(null);setError('');setMainTab('form')}
+
+  async function openReportFromHistory(id){
+    setError('');
+    const rid=String(id==null?'':id).trim();
+    if(!rid){setError('Некорректный идентификатор отчёта');return}
+    try{
+      const r=await apiFetch('/api/reports/'+encodeURIComponent(rid));
+      const d=await fetchJsonResponse(r);
+      setWsData(d);
+      setView('workspace');
+      setMainTab('form');
+    }catch(e){setError(e.message||'Ошибка')}
+  }
 
   if(!user)return<Login onLogin={setUser}/>;
+
+  const showNewReportBtn = mainTab==='history' || (mainTab==='form' && view!=='upload');
 
   return(
     <div className="shell">
       <div className="topbar">
-        <div className="brand" onClick={()=>view!=='processing'&&handleReset()} style={{cursor:view==='processing'?'default':'pointer',opacity:view==='processing'?0.65:1}} title={view==='processing'?'Дождитесь окончания обработки':'На главную'}>HR 1-2-1<span>аналитика</span></div>
+        <div className="brand" onClick={()=>view!=='processing'&&handleReset()} style={{cursor:view==='processing'?'default':'pointer',opacity:view==='processing'?0.65:1}} title={view==='processing'?'Дождитесь окончания обработки':'На главную (новая запись)'}>HR 1-2-1<span>аналитика</span></div>
+        {showNewReportBtn&&(
+          <button
+            type="button"
+            className="chip"
+            disabled={view==='processing'}
+            onClick={()=>{if(view!=='processing')handleReset()}}
+            title={view==='processing'?'Дождитесь окончания обработки':'Новая загрузка файла или ссылки'}
+            style={{flexShrink:0}}
+          >
+            Новый отчёт
+          </button>
+        )}
         <div className="topbar-r">
           <button className="chip" type="button" onClick={()=>setApiSettings(true)}>ИИ и API</button>
-          <button className="chip" type="button" onClick={()=>setSettings(true)}>{I.gear} Промты</button>
+          <button className="chip" type="button" onClick={()=>setSettings(true)}>Промты</button>
           <div className="user-pill">
             <div className="user-dot">{user[0]}</div>
             {user}
@@ -1031,12 +1350,18 @@ function App(){
         </div>
       </div>
 
-      <div className={'main-area'+(view==='workspace'?' main-area--workspace':'')}>
+      <div className="main-tabs">
+        <button type="button" className={mainTab==='form'?'active':''} onClick={()=>setMainTab('form')}>Формирование отчёта</button>
+        <button type="button" className={mainTab==='history'?'active':''} onClick={()=>setMainTab('history')}>История</button>
+      </div>
+
+      <div className={'main-area'+(mainTab==='form'&&view==='workspace'?' main-area--workspace':'')}>
         {error&&<div style={{padding:'.8rem 1.2rem',background:'var(--rd-dim)',color:'var(--rd)',fontSize:'.85rem',borderBottom:'1px solid rgba(248,113,113,.15)'}}>⚠ {error}<button className="btn btn-g" onClick={()=>setError('')} style={{marginLeft:'.5rem',verticalAlign:'middle'}}>{I.x}</button></div>}
 
-        {view==='upload'&&<UploadPage onProcess={handleProcess}/>}
-        {view==='processing'&&<ProcessingPage step={step}/>}
-        {view==='workspace'&&wsData&&<Workspace data={wsData} onReset={handleReset}/>}
+        {mainTab==='form'&&view==='upload'&&<UploadPage onProcess={handleProcess}/>}
+        {mainTab==='form'&&view==='processing'&&<ProcessingPage step={step}/>}
+        {mainTab==='form'&&view==='workspace'&&wsData&&<Workspace data={wsData} onReset={handleReset}/>}
+        {mainTab==='history'&&<HistoryPage onOpen={openReportFromHistory} refreshKey={historyRefresh}/>}
       </div>
 
       {settings&&<SettingsModal onClose={()=>setSettings(false)}/>}

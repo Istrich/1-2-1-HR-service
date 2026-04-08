@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+import json
 import uuid
 import asyncio
 import mimetypes
@@ -16,8 +17,9 @@ import tempfile
 import subprocess
 import secrets
 import threading
+import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime, timedelta, timezone
 
 import aiohttp
@@ -35,7 +37,13 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APIError,
+    AuthenticationError,
+    OpenAI,
+    RateLimitError,
+)
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor
 from docx.oxml.ns import qn
@@ -74,6 +82,164 @@ MAX_UPLOAD_MB = 500
 
 OUTPUTS_DIR = Path("outputs")
 OUTPUTS_DIR.mkdir(exist_ok=True)
+REPORTS_CATALOG_PATH = OUTPUTS_DIR / "reports_catalog.json"
+reports_catalog_lock = asyncio.Lock()
+
+
+def _normalize_report_id(raw: str | None) -> str | None:
+    """12 hex-символов (как session_id); без учёта регистра."""
+    if not raw:
+        return None
+    s = str(raw).strip().lower()
+    if not re.fullmatch(r"[a-f0-9]{12}", s):
+        return None
+    return s
+
+
+async def _load_reports_catalog() -> dict:
+    if not REPORTS_CATALOG_PATH.is_file():
+        return {}
+    try:
+        raw = await asyncio.to_thread(
+            REPORTS_CATALOG_PATH.read_text,
+            encoding="utf-8",
+        )
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning("reports_catalog.json unreadable: %s", e)
+        return {}
+
+
+async def _save_reports_catalog(cat: dict) -> None:
+    tmp = REPORTS_CATALOG_PATH.with_suffix(".json.tmp")
+    text = json.dumps(cat, ensure_ascii=False, indent=2)
+    await asyncio.to_thread(tmp.write_text, text, encoding="utf-8")
+    await asyncio.to_thread(tmp.replace, REPORTS_CATALOG_PATH)
+
+
+def _default_report_title(source_name: str | None) -> str:
+    if source_name:
+        s = Path(str(source_name)).name.strip()
+        if len(s) > 120:
+            s = s[:117] + "..."
+        return s or "Без названия"
+    now = datetime.now(timezone.utc).astimezone()
+    return f"Отчёт {now.strftime('%d.%m.%Y %H:%M')}"
+
+
+async def _append_report_catalog(
+    user: str,
+    report_id: str,
+    title: str,
+    audio_filename: str,
+    audio_bytes: int,
+    transcript_filename: str,
+    report_filename: str,
+) -> None:
+    entry = {
+        "id": report_id,
+        "title": title,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "audio_file": audio_filename,
+        "audio_bytes": audio_bytes,
+        "transcript_file": transcript_filename,
+        "report_file": report_filename,
+    }
+    async with reports_catalog_lock:
+        cat = await _load_reports_catalog()
+        lst = cat.get(user)
+        if not isinstance(lst, list):
+            lst = []
+        lst = [e for e in lst if isinstance(e, dict) and e.get("id") != report_id]
+        lst.insert(0, entry)
+        cat[user] = lst
+        await _save_reports_catalog(cat)
+
+
+async def _find_report_entry(user: str, report_id: str) -> dict | None:
+    rid = _normalize_report_id(report_id)
+    if not rid:
+        return None
+    async with reports_catalog_lock:
+        cat = await _load_reports_catalog()
+    lst = cat.get(user)
+    if not isinstance(lst, list):
+        return None
+    for e in lst:
+        if not isinstance(e, dict):
+            continue
+        eid = _normalize_report_id(str(e.get("id", "")))
+        if eid == rid:
+            return e
+    return None
+
+
+async def _persist_saved_report_text(user: str, report_id: str, report_text: str) -> bool:
+    entry = await _find_report_entry(user, report_id)
+    if not entry:
+        return False
+    rf = entry.get("report_file")
+    if not rf or not isinstance(rf, str):
+        return False
+    path = OUTPUTS_DIR / rf
+    try:
+        path.relative_to(OUTPUTS_DIR.resolve())
+    except ValueError:
+        return False
+
+    def _w():
+        path.write_text(report_text, encoding="utf-8")
+
+    await asyncio.to_thread(_w)
+    return True
+
+
+def _delete_report_disk_files(entry: dict, report_id: str) -> None:
+    names = [
+        entry.get("audio_file"),
+        entry.get("transcript_file"),
+        entry.get("report_file"),
+        f"{report_id}_report.docx",
+    ]
+    for n in names:
+        if not n or not isinstance(n, str):
+            continue
+        if "/" in n or "\\" in n or n.startswith(".."):
+            continue
+        p = OUTPUTS_DIR / n
+        try:
+            p.relative_to(OUTPUTS_DIR.resolve())
+        except ValueError:
+            continue
+        if p.is_file():
+            try:
+                p.unlink()
+            except OSError as e:
+                logger.warning("Could not delete %s: %s", p, e)
+
+
+async def _remove_report_from_catalog(user: str, report_id: str) -> dict | None:
+    rid = _normalize_report_id(report_id)
+    if not rid:
+        return None
+    async with reports_catalog_lock:
+        cat = await _load_reports_catalog()
+        lst = cat.get(user)
+        if not isinstance(lst, list):
+            return None
+        removed = None
+        new_lst = []
+        for e in lst:
+            if isinstance(e, dict) and _normalize_report_id(str(e.get("id", ""))) == rid:
+                removed = e
+                continue
+            new_lst.append(e)
+        if removed is None:
+            return None
+        cat[user] = new_lst
+        await _save_reports_catalog(cat)
+        return removed
 
 
 def _safe_output_file(relative: str) -> Path:
@@ -155,6 +321,65 @@ def drop_whisper_model_cache() -> None:
         _loaded_whisper_model_name = None
 
 
+def _whisper_cache_dir() -> Path:
+    """Каталог кэша весов, как в whisper.load_model (download_root)."""
+    default = Path.home() / ".cache"
+    base = Path(os.getenv("XDG_CACHE_HOME", str(default)))
+    return base / "whisper"
+
+
+def _local_whisper_models_snapshot() -> dict:
+    """
+    Список официальных имён моделей openai-whisper и наличие скачанного .pt в кэше
+    (имя файла = последний сегмент URL, как в whisper._download).
+    """
+    try:
+        import whisper as whisper_pkg
+    except ImportError as e:
+        return {
+            "cache_dir": None,
+            "models": [],
+            "error": "import_failed",
+            "hint": str(e),
+        }
+
+    models_meta: list[dict] = []
+    cache_dir = _whisper_cache_dir()
+    # официальные имена и URL из пакета (совпадает с load_model)
+    reg = getattr(whisper_pkg, "_MODELS", {})
+    for name in whisper_pkg.available_models():
+        url = reg.get(name)
+        if not url:
+            continue
+        fn = os.path.basename(url)
+        p = cache_dir / fn
+        downloaded = p.is_file()
+        size_bytes: int | None = None
+        if downloaded:
+            try:
+                size_bytes = p.stat().st_size
+            except OSError:
+                size_bytes = None
+        models_meta.append({
+            "id": name,
+            "file": fn,
+            "downloaded": downloaded,
+            "size_bytes": size_bytes,
+        })
+
+    all_files = {m["file"] for m in models_meta}
+    files_present = {m["file"] for m in models_meta if m.get("downloaded")}
+    return {
+        "cache_dir": str(cache_dir.resolve()),
+        "models": models_meta,
+        "downloaded_count": sum(1 for m in models_meta if m.get("downloaded")),
+        "total_count": len(models_meta),
+        "unique_pt_total": len(all_files),
+        "unique_pt_downloaded": len(files_present),
+        "error": None,
+    }
+
+
 def get_whisper_model():
     global _whisper_model, _loaded_whisper_model_name
     name = os.getenv("WHISPER_MODEL", "small").strip()
@@ -212,6 +437,110 @@ def get_deepseek_api_key() -> str:
     return (os.getenv("DEEPSEEK_API_KEY") or "").strip()
 
 
+# Модели Chat Completions для отчёта/письма (актуальные id API; при смене линейки — обновить список)
+OPENAI_REPORT_MODEL_PRESETS: list[tuple[str, str]] = [
+    ("gpt-4o", "GPT-4o"),
+    ("gpt-4o-mini", "GPT-4o mini"),
+    ("gpt-4.1", "GPT-4.1"),
+    ("gpt-4.1-mini", "GPT-4.1 mini"),
+    ("gpt-4.1-nano", "GPT-4.1 nano"),
+    ("gpt-4-turbo", "GPT-4 Turbo"),
+    ("gpt-4", "GPT-4"),
+    ("o1", "o1"),
+    ("o1-mini", "o1-mini"),
+    ("o3-mini", "o3-mini"),
+    ("o4-mini", "o4-mini"),
+    ("chatgpt-4o-latest", "chatgpt-4o-latest"),
+]
+
+
+def _openai_report_model_presets_payload() -> list[dict[str, str]]:
+    return [{"id": mid, "label": lab} for mid, lab in OPENAI_REPORT_MODEL_PRESETS]
+
+
+def _is_likely_chat_completion_model(model_id: str) -> bool:
+    """Отфильтровать /v1/models: оставить типичные chat / reasoning, без embeddings и пр."""
+    mid = (model_id or "").strip().lower()
+    if not mid:
+        return False
+    # не отсекаем подстроку "search" целиком — встречается в легитимных id
+    block_any = (
+        "embedding", "embed", "whisper", "dall-e", "dall_e", "tts", "moderation",
+        "realtime", "transcribe", "davinci", "babbage", "curie",
+        "text-moderation", "omni-moderation",
+    )
+    if any(x in mid for x in block_any):
+        return False
+    block_prefix = (
+        "ft:", "text-embedding", "text-search", "code-search",
+    )
+    if any(mid.startswith(p) for p in block_prefix):
+        return False
+    if mid.startswith("gpt-"):
+        return True
+    if mid.startswith("chatgpt-"):
+        return True
+    if re.match(r"^o[0-9]", mid):
+        return True
+    return False
+
+
+def _is_chat_model_relaxed(model_id: str) -> bool:
+    """Запасной отбор, если строгий фильтр дал пустой список при непустом ответе API."""
+    mid = (model_id or "").strip().lower()
+    if not mid:
+        return False
+    if any(x in mid for x in ("embedding", "embed", "whisper", "dall-e", "dall_e", "tts", "moderation")):
+        return False
+    if mid.startswith("gpt-") or mid.startswith("chatgpt-") or re.match(r"^o[0-9]", mid):
+        return True
+    return False
+
+
+def _fetch_openai_models_sync() -> list[dict[str, str]]:
+    """
+    Список моделей через официальный SDK: GET /v1/models (тот же endpoint, что в документации OpenAI).
+    """
+    key = get_openai_api_key()
+    if not key:
+        raise ValueError("no_openai_key")
+    client = OpenAI(api_key=key)
+    resp = client.models.list()
+    raw: list[str] = []
+    for m in resp.data:
+        mid = (getattr(m, "id", None) or "").strip()
+        if mid:
+            raw.append(mid)
+    out: list[dict[str, str]] = []
+    for mid in raw:
+        if _is_likely_chat_completion_model(mid):
+            out.append({"id": mid, "label": mid})
+    if not out and raw:
+        logger.info(
+            "OpenAI /v1/models: строгий фильтр убрал все %d моделей; применяем мягкий отбор",
+            len(raw),
+        )
+        for mid in raw:
+            if _is_chat_model_relaxed(mid):
+                out.append({"id": mid, "label": mid})
+    out.sort(key=lambda x: x["id"].lower())
+    return out
+
+
+async def _fetch_openai_models_live() -> list[dict[str, str]]:
+    return await asyncio.to_thread(_fetch_openai_models_sync)
+
+
+def _valid_openai_report_model_id(m: str) -> bool:
+    s = (m or "").strip()
+    if not s or len(s) > 128:
+        return False
+    ids = {x[0] for x in OPENAI_REPORT_MODEL_PRESETS}
+    if s in ids:
+        return True
+    return bool(re.fullmatch(r"[a-zA-Z0-9._-]+", s))
+
+
 def get_report_llm() -> tuple[OpenAI, str]:
     """Клиент и имя модели для отчёта и письма."""
     provider = (os.getenv("REPORT_AI_PROVIDER") or "openai").strip().lower()
@@ -235,6 +564,16 @@ def get_openai_client_for_whisper() -> OpenAI:
     return OpenAI(api_key=key)
 
 
+def _openai_model_fixed_temperature_only(model: str) -> bool:
+    """Часть моделей OpenAI (reasoning, gpt-5) не принимает произвольный temperature — только значение по умолчанию."""
+    m = (model or "").strip().lower()
+    if re.match(r"^o\d", m):
+        return True
+    if m.startswith("gpt-5"):
+        return True
+    return False
+
+
 def chat_completion(
     client: OpenAI,
     model: str,
@@ -243,13 +582,56 @@ def chat_completion(
     temperature: float = 0.2,
     max_tokens: int = 16000,
 ) -> str:
-    r = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-    return (r.choices[0].message.content or "").strip()
+    """Вызов chat.completions с подбором параметров под разные модели OpenAI и DeepSeek."""
+    provider = (os.getenv("REPORT_AI_PROVIDER") or "openai").strip().lower()
+    kwargs: dict[str, Any] = {"model": model, "messages": messages}
+    if provider == "deepseek":
+        kwargs["max_tokens"] = max_tokens
+        kwargs["temperature"] = temperature
+    else:
+        kwargs["max_completion_tokens"] = max_tokens
+        if not _openai_model_fixed_temperature_only(model):
+            kwargs["temperature"] = temperature
+
+    last_err: APIError | None = None
+    for _ in range(8):
+        try:
+            r = client.chat.completions.create(**kwargs)
+            if not r.choices:
+                raise ValueError("Модель вернула пустой ответ")
+            return (r.choices[0].message.content or "").strip()
+        except APIError as e:
+            last_err = e
+            if getattr(e, "status_code", None) != 400:
+                raise
+            msg = (str(e) or "").lower()
+            changed = False
+            if "temperature" in kwargs and ("temperature" in msg or "unsupported_value" in msg):
+                kwargs.pop("temperature", None)
+                changed = True
+                logger.info("chat.completions: повтор без temperature (ограничение модели)")
+            elif provider != "deepseek":
+                if "max_completion_tokens" in kwargs and (
+                    "use 'max_tokens'" in msg
+                    or ("max_completion_tokens" in msg and ("unsupported" in msg or "invalid" in msg))
+                ):
+                    kwargs.pop("max_completion_tokens", None)
+                    kwargs["max_tokens"] = max_tokens
+                    changed = True
+                    logger.info("chat.completions: повтор с max_tokens (старый контракт API)")
+                elif "max_tokens" in kwargs and (
+                    "max_completion_tokens" in msg
+                    and ("instead" in msg or "unsupported" in msg or "invalid" in msg)
+                ):
+                    kwargs.pop("max_tokens", None)
+                    kwargs["max_completion_tokens"] = max_tokens
+                    changed = True
+                    logger.info("chat.completions: повтор с max_completion_tokens")
+            if not changed:
+                raise
+    if last_err:
+        raise last_err
+    raise RuntimeError("chat.completions: исчерпаны повторы")
 
 
 # ====== ПРОМТЫ ======
@@ -418,14 +800,31 @@ def transcribe_chunk(path: Path, language: str = "ru"):
     backend = (os.getenv("WHISPER_BACKEND") or "local").strip().lower()
     if backend in ("api", "openai", "cloud"):
         wclient = get_openai_client_for_whisper()
-        with open(path, "rb") as f:
-            return wclient.audio.transcriptions.create(
-                model="whisper-1",
-                file=f,
-                response_format="verbose_json",
-                language=language,
-                timestamp_granularities=["segment"],
-            )
+        max_attempts = 5
+        for attempt in range(1, max_attempts + 1):
+            try:
+                with open(path, "rb") as f:
+                    return wclient.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=f,
+                        response_format="verbose_json",
+                        language=language,
+                        timestamp_granularities=["segment"],
+                    )
+            except APIError as e:
+                code = getattr(e, "status_code", None)
+                if code in (500, 502, 503, 429) and attempt < max_attempts:
+                    wait = min(2.0**attempt, 45.0)
+                    logger.warning(
+                        "Whisper API HTTP %s (попытка %d/%d), пауза %.1f с",
+                        code,
+                        attempt,
+                        max_attempts,
+                        wait,
+                    )
+                    time.sleep(wait)
+                    continue
+                raise
 
     model = get_whisper_model()
     result = model.transcribe(
@@ -718,7 +1117,7 @@ async def get_current_user(request: Request) -> str:
     username = verify_token(auth[7:])
     if not username:
         raise HTTPException(status_code=401)
-    return username
+    return username.strip()
 
 
 # ====== APP ======
@@ -790,9 +1189,11 @@ class LoginRequest(BaseModel):
 
 @app.post("/api/login")
 async def login(req: LoginRequest):
-    if req.username not in USERS or USERS[req.username] != req.password:
+    u = (req.username or "").strip()
+    p = (req.password or "").strip()
+    if u not in USERS or USERS[u] != p:
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
-    return {"token": create_token(req.username), "username": req.username}
+    return {"token": create_token(u), "username": u}
 
 @app.get("/api/me")
 async def me(user: str = Depends(get_current_user)):
@@ -838,6 +1239,7 @@ class RuntimeSettingsUpdate(BaseModel):
     report_ai_provider: Optional[str] = None
     whisper_backend: Optional[str] = None
     whisper_model: Optional[str] = None
+    openai_report_model: Optional[str] = None
     openai_api_key: Optional[str] = None
     deepseek_api_key: Optional[str] = None
 
@@ -848,9 +1250,45 @@ async def get_runtime_settings(user: str = Depends(get_current_user)):
         "report_ai_provider": (os.getenv("REPORT_AI_PROVIDER") or "openai").strip().lower(),
         "whisper_backend": (os.getenv("WHISPER_BACKEND") or "local").strip().lower(),
         "whisper_model": (os.getenv("WHISPER_MODEL") or "small").strip(),
+        "openai_report_model": (os.getenv("OPENAI_REPORT_MODEL") or "gpt-4o").strip(),
         "openai_key_set": bool(get_openai_api_key()),
         "deepseek_key_set": bool(get_deepseek_api_key()),
     }
+
+
+@app.get("/api/settings/openai-report-models")
+async def get_openai_report_model_presets(user: str = Depends(get_current_user)):
+    """
+    Список моделей для отчёта: при наличии OPENAI_API_KEY — живой список (SDK → GET /v1/models),
+    иначе статический пресет.
+    """
+    presets = _openai_report_model_presets_payload()
+    if not get_openai_api_key():
+        return {"models": presets, "source": "preset", "hint": "no_key"}
+    try:
+        live = await _fetch_openai_models_live()
+        if live:
+            return {"models": live, "source": "live"}
+        logger.warning("OpenAI /v1/models: пустой список после фильтрации")
+        return {"models": presets, "source": "preset", "hint": "empty_filtered"}
+    except AuthenticationError as e:
+        logger.warning("OpenAI /v1/models: неверный ключ или доступ: %s", e)
+        return {"models": presets, "source": "preset", "hint": "invalid_key"}
+    except RateLimitError as e:
+        logger.warning("OpenAI /v1/models: rate limit: %s", e)
+        return {"models": presets, "source": "preset", "hint": "rate_limit"}
+    except APIConnectionError as e:
+        logger.warning("OpenAI /v1/models: сеть: %s", e)
+        return {"models": presets, "source": "preset", "hint": "connection"}
+    except Exception as e:
+        logger.warning("OpenAI /v1/models: %s: %s", type(e).__name__, e)
+        return {"models": presets, "source": "preset", "hint": "fetch_failed"}
+
+
+@app.get("/api/settings/whisper-local-models")
+async def get_whisper_local_models(user: str = Depends(get_current_user)):
+    """Список локальных моделей Whisper и проверка наличия файлов в кэше."""
+    return await asyncio.to_thread(_local_whisper_models_snapshot)
 
 
 @app.post("/api/settings/runtime")
@@ -869,7 +1307,32 @@ async def save_runtime_settings(req: RuntimeSettingsUpdate, user: str = Depends(
             raise HTTPException(status_code=400, detail="whisper_backend: local или api")
         updates["WHISPER_BACKEND"] = b
     if req.whisper_model is not None:
-        updates["WHISPER_MODEL"] = req.whisper_model.strip()
+        m = req.whisper_model.strip()
+        if not m:
+            raise HTTPException(status_code=400, detail="Укажите имя модели Whisper")
+        try:
+            import whisper as wp
+
+            ok_name = m in wp.available_models()
+            ok_file = os.path.isfile(m)
+            if not ok_name and not ok_file:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Неизвестная модель Whisper или путь к .pt не найден",
+                )
+        except ImportError:
+            pass
+        updates["WHISPER_MODEL"] = m
+    if req.openai_report_model is not None:
+        m = req.openai_report_model.strip()
+        if not m:
+            raise HTTPException(status_code=400, detail="Укажите модель OpenAI для отчёта")
+        if not _valid_openai_report_model_id(m):
+            raise HTTPException(
+                status_code=400,
+                detail="Недопустимое имя модели OpenAI (выберите из списка или допустимый id)",
+            )
+        updates["OPENAI_REPORT_MODEL"] = m
     if req.openai_api_key is not None:
         k = req.openai_api_key.strip()
         if k:
@@ -889,9 +1352,46 @@ async def save_runtime_settings(req: RuntimeSettingsUpdate, user: str = Depends(
 
 # --- Core processing ---
 
-async def _process_audio_file(input_path: Path, user: str) -> dict:
+
+def http_exception_from_process_error(exc: Exception) -> HTTPException:
+    """Переводит ошибки пайплайна (Whisper, LLM) в JSON `detail` вместо «голого» 500."""
+    if isinstance(exc, ValueError):
+        return HTTPException(status_code=400, detail=str(exc))
+    if isinstance(exc, AuthenticationError):
+        logger.warning("LLM authentication failed: %s", exc)
+        return HTTPException(
+            status_code=400,
+            detail="Ошибка аутентификации API (проверьте ключ в «ИИ и API»).",
+        )
+    if isinstance(exc, RateLimitError):
+        return HTTPException(
+            status_code=429,
+            detail="Превышен лимит запросов к API. Повторите позже.",
+        )
+    if isinstance(exc, APIConnectionError):
+        return HTTPException(
+            status_code=502,
+            detail="Нет соединения с API (сеть или недоступность провайдера).",
+        )
+    if isinstance(exc, APIError):
+        msg = str(exc).strip() or "ошибка API"
+        logger.error("Upstream API error (Whisper/LLM): %s", msg)
+        return HTTPException(status_code=502, detail=f"Ошибка API: {msg}")
+    logger.exception("Необработанное исключение в пайплайне обработки")
+    return HTTPException(
+        status_code=500,
+        detail="Внутренняя ошибка при обработке. Подробности в логах сервера.",
+    )
+
+
+async def _process_audio_file(
+    input_path: Path,
+    user: str,
+    source_name: str | None = None,
+) -> dict:
     prompts = _get_user_prompts(user)
     session_id = uuid.uuid4().hex[:12]
+    title = _default_report_title(source_name)
 
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
@@ -900,12 +1400,41 @@ async def _process_audio_file(input_path: Path, user: str) -> dict:
         plain_transcript, segments = await asyncio.to_thread(transcribe_full_audio, chunks)
 
         audio_filename = f"{session_id}_audio.mp3"
-        await asyncio.to_thread(convert_to_playback_mp3, input_path, OUTPUTS_DIR / audio_filename)
+        playback_path = OUTPUTS_DIR / audio_filename
+        await asyncio.to_thread(convert_to_playback_mp3, input_path, playback_path)
 
         report_text = await asyncio.to_thread(build_report, plain_transcript, prompts["report"])
 
+    audio_bytes = playback_path.stat().st_size
+    transcript_filename = f"{session_id}_transcript.json"
+    report_filename = f"{session_id}_report.md"
+    tjson = json.dumps(
+        {"transcript": plain_transcript, "segments": segments},
+        ensure_ascii=False,
+    )
+    tp = OUTPUTS_DIR / transcript_filename
+    rp = OUTPUTS_DIR / report_filename
+
+    def _write_reports():
+        tp.write_text(tjson, encoding="utf-8")
+        rp.write_text(report_text, encoding="utf-8")
+
+    await asyncio.to_thread(_write_reports)
+
+    await _append_report_catalog(
+        user,
+        session_id,
+        title,
+        audio_filename,
+        audio_bytes,
+        transcript_filename,
+        report_filename,
+    )
+
     user_sessions[user] = {
         "session_id": session_id,
+        "report_id": session_id,
+        "title": title,
         "transcript": plain_transcript,
         "segments": segments,
         "report": report_text,
@@ -914,6 +1443,10 @@ async def _process_audio_file(input_path: Path, user: str) -> dict:
 
     return {
         "session_id": session_id,
+        "report_id": session_id,
+        "title": title,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "audio_bytes": audio_bytes,
         "segments": segments,
         "report": report_text,
         "audio_file": f"/outputs/{audio_filename}",
@@ -924,16 +1457,19 @@ async def _process_audio_file(input_path: Path, user: str) -> dict:
 async def process_upload(file: UploadFile = File(...), user: str = Depends(get_current_user)):
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
-        input_path = tmpdir / (file.filename or f"{uuid.uuid4().hex}.audio")
+        orig_name = file.filename
+        input_path = tmpdir / (orig_name or f"{uuid.uuid4().hex}.audio")
         content = await file.read()
         if len(content) > MAX_UPLOAD_MB * 1024 * 1024:
             raise HTTPException(status_code=413, detail=f"Макс. {MAX_UPLOAD_MB} МБ")
         with open(input_path, "wb") as f:
             f.write(content)
         try:
-            return await _process_audio_file(input_path, user)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            return await _process_audio_file(input_path, user, source_name=orig_name)
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise http_exception_from_process_error(e) from e
 
 
 @app.post("/api/process/url")
@@ -942,9 +1478,11 @@ async def process_url(url: str = Form(...), user: str = Depends(get_current_user
         tmpdir = Path(tmp)
         try:
             input_path = await download_url_to_temp(url, tmpdir)
-            return await _process_audio_file(input_path, user)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            return await _process_audio_file(input_path, user, source_name=None)
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise http_exception_from_process_error(e) from e
 
 
 class RefineRequest(BaseModel):
@@ -961,6 +1499,9 @@ async def refine_report_endpoint(req: RefineRequest, user: str = Depends(get_cur
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     session["report"] = refined
+    sid = session.get("session_id") or session.get("report_id")
+    if isinstance(sid, str):
+        await _persist_saved_report_text(user, sid, refined)
     return {"report": refined}
 
 
@@ -987,6 +1528,184 @@ async def export_docx(req: ExportRequest, user: str = Depends(get_current_user))
     filename = f"{sid}_report.docx"
     await asyncio.to_thread(build_docx, req.report_text, OUTPUTS_DIR / filename)
     return {"file": f"/outputs/{filename}"}
+
+
+class ReportPatch(BaseModel):
+    title: Optional[str] = None
+    report: Optional[str] = None
+
+
+@app.get("/api/reports")
+async def list_reports(
+    user: str = Depends(get_current_user),
+    q: str = "",
+):
+    cat = await _load_reports_catalog()
+    lst = cat.get(user)
+    if not isinstance(lst, list):
+        return {"items": []}
+    qn = (q or "").strip().lower()
+    items: list[dict] = []
+    for e in lst:
+        if not isinstance(e, dict):
+            continue
+        nid = _normalize_report_id(str(e.get("id", "")))
+        if not nid:
+            continue
+        title = (e.get("title") or "").strip()
+        if qn and qn not in title.lower():
+            continue
+        af = e.get("audio_file")
+        items.append({
+            "id": nid,
+            "title": title or "Без названия",
+            "created_at": e.get("created_at"),
+            "audio_bytes": int(e.get("audio_bytes") or 0),
+            "audio_file": f"/outputs/{af}" if af else None,
+        })
+    return {"items": items}
+
+
+@app.get("/api/reports/{report_id}")
+async def get_report(report_id: str, user: str = Depends(get_current_user)):
+    rid = _normalize_report_id(report_id)
+    if not rid:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    entry = await _find_report_entry(user, rid)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    tf = entry.get("transcript_file")
+    rf = entry.get("report_file")
+    af = entry.get("audio_file")
+    if not all(isinstance(x, str) for x in (tf, rf, af)):
+        raise HTTPException(status_code=500, detail="Некорректная запись каталога")
+
+    base = OUTPUTS_DIR.resolve()
+    try:
+        tp = (OUTPUTS_DIR / tf).resolve()
+        rp = (OUTPUTS_DIR / rf).resolve()
+    except OSError as e:
+        raise HTTPException(status_code=404, detail="Не найдено") from e
+    try:
+        ok_tp = tp.is_relative_to(base)
+        ok_rp = rp.is_relative_to(base)
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=404, detail="Не найдено") from e
+    if not ok_tp or not ok_rp:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    if not tp.is_file() or not rp.is_file():
+        raise HTTPException(status_code=404, detail="Файлы отчёта отсутствуют")
+
+    def _read():
+        traw = tp.read_text(encoding="utf-8")
+        rtext = rp.read_text(encoding="utf-8")
+        return traw, rtext
+
+    traw, report_text = await asyncio.to_thread(_read)
+    try:
+        tdata = json.loads(traw)
+    except json.JSONDecodeError as e:
+        logger.warning("Bad transcript json for %s: %s", rid, e)
+        raise HTTPException(status_code=500, detail="Повреждён файл транскрипции") from e
+    plain = (tdata.get("transcript") or "").strip() if isinstance(tdata, dict) else ""
+    segments = tdata.get("segments") if isinstance(tdata, dict) else []
+    if not isinstance(segments, list):
+        segments = []
+    audio_url = f"/outputs/{af}"
+
+    user_sessions[user] = {
+        "session_id": rid,
+        "report_id": rid,
+        "title": entry.get("title") or "Без названия",
+        "transcript": plain,
+        "segments": segments,
+        "report": report_text,
+        "audio_file": audio_url,
+    }
+
+    ap = (OUTPUTS_DIR / af).resolve()
+    try:
+        if ap.is_file() and ap.is_relative_to(base):
+            audio_bytes = ap.stat().st_size
+        else:
+            audio_bytes = int(entry.get("audio_bytes") or 0)
+    except (ValueError, OSError):
+        audio_bytes = int(entry.get("audio_bytes") or 0)
+
+    return {
+        "session_id": rid,
+        "report_id": rid,
+        "title": entry.get("title") or "Без названия",
+        "created_at": entry.get("created_at"),
+        "audio_bytes": audio_bytes,
+        "segments": segments,
+        "report": report_text,
+        "audio_file": audio_url,
+    }
+
+
+@app.patch("/api/reports/{report_id}")
+async def patch_report(
+    report_id: str,
+    req: ReportPatch,
+    user: str = Depends(get_current_user),
+):
+    rid = _normalize_report_id(report_id)
+    if not rid:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    entry = await _find_report_entry(user, rid)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Не найдено")
+
+    if req.title is None and req.report is None:
+        raise HTTPException(status_code=400, detail="Укажите title или report")
+
+    if req.title is not None:
+        t = req.title.strip()
+        if not t:
+            raise HTTPException(status_code=400, detail="Название не может быть пустым")
+        async with reports_catalog_lock:
+            cat = await _load_reports_catalog()
+            lst = cat.get(user)
+            if not isinstance(lst, list):
+                raise HTTPException(status_code=404, detail="Не найдено")
+            found = False
+            for e in lst:
+                if isinstance(e, dict) and _normalize_report_id(str(e.get("id", ""))) == rid:
+                    e["title"] = t
+                    found = True
+                    break
+            if not found:
+                raise HTTPException(status_code=404, detail="Не найдено")
+            await _save_reports_catalog(cat)
+        sess = user_sessions.get(user)
+        if sess and sess.get("session_id") == rid:
+            sess["title"] = t
+
+    if req.report is not None:
+        ok = await _persist_saved_report_text(user, rid, req.report)
+        if not ok:
+            raise HTTPException(status_code=500, detail="Не удалось сохранить отчёт")
+        sess = user_sessions.get(user)
+        if sess and sess.get("session_id") == rid:
+            sess["report"] = req.report
+
+    return {"ok": True}
+
+
+@app.delete("/api/reports/{report_id}")
+async def delete_report(report_id: str, user: str = Depends(get_current_user)):
+    rid = _normalize_report_id(report_id)
+    if not rid:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    removed = await _remove_report_from_catalog(user, rid)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    _delete_report_disk_files(removed, rid)
+    sess = user_sessions.get(user)
+    if sess and sess.get("session_id") == rid:
+        user_sessions.pop(user, None)
+    return {"ok": True}
 
 
 @app.get("/")
