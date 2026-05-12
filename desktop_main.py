@@ -44,9 +44,9 @@ def _wait_for_port(host: str, port: int, timeout_sec: float = 20.0) -> None:
 
 
 def _run_server() -> None:
-    # app.py uses relative paths for static/outputs, so we point cwd to bundled resources.
+    # app.main uses relative paths for static/outputs, so we point cwd to bundled resources.
     os.chdir(_resource_base_dir())
-    from app import app  # pylint: disable=import-outside-toplevel
+    from app.main import app  # pylint: disable=import-outside-toplevel
 
     config = uvicorn.Config(
         app=app,

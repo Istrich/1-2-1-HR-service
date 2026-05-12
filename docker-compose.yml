@@ -16,7 +16,9 @@ services:
     environment:
       # Явно указываем кэш (совпадает с Dockerfile).
       XDG_CACHE_HOME: /data/cache
+      PYTHONPATH: /app
     volumes:
       - ${HR121_DATA_DIR:-./data}/.env:/app/.env
+      - ${HR121_DATA_DIR:-./data}/sqlite.db:/app/outputs/sqlite.db
       - ${HR121_DATA_DIR:-./data}/outputs:/app/outputs
       - ${HR121_DATA_DIR:-./data}/cache:/data/cache
