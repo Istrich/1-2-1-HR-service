@@ -1,0 +1,3 @@
+## 2024-05-19 - Missing accessible names on icon-only buttons
+**Learning:** In the HR 1-2-1 Web app's frontend component (`static/index.html`), interactive icon-only buttons (like the `AudioPlayer` play/pause button and various modal close buttons) often lack accessible names (e.g., `aria-label`, `title`). Because the UI is entirely in Russian, these attributes must also be added in Russian for proper accessibility and UX.
+**Action:** When adding or auditing icon-only components in this project, explicitly verify and add `aria-label` and `title` attributes using appropriate Russian translations.
