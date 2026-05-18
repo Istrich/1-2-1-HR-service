@@ -101,7 +101,7 @@ textarea{resize:vertical;min-height:120px;font-family:var(--mono);font-size:.8re
 .upload-container h2{font-size:1.8rem;font-weight:700;letter-spacing:-.03em;margin-bottom:.4rem}
 .upload-container .sub{color:var(--tx2);font-size:.9rem;margin-bottom:2rem}
 .drop-zone{border:2px dashed var(--brd);border-radius:var(--r2);padding:3rem 2rem;cursor:pointer;transition:all .2s;background:var(--bg-s);position:relative}
-.drop-zone:hover,.drop-zone.over{border-color:var(--am);background:var(--am-dim)}
+.drop-zone:hover,.drop-zone.over,.drop-zone:focus-within{border-color:var(--am);background:var(--am-dim)}
 .drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .drop-zone .dz-icon{width:56px;height:56px;margin:0 auto 1rem;border-radius:50%;background:var(--am-dim);display:flex;align-items:center;justify-content:center}
 .drop-zone h3{font-size:1rem;font-weight:500;margin-bottom:.25rem}
@@ -486,7 +486,7 @@ function AudioPlayer({src,audioRef}){
   return(
     <div className="ws-audio">
       <audio ref={audioRef} src={src} preload="auto" playsInline/>
-      <button type="button" className="audio-play" onClick={(e)=>{e.stopPropagation();toggle();}}>{playing?I.pause:I.play}</button>
+      <button type="button" className="audio-play" aria-label={playing ? "Пауза" : "Воспроизведение"} onClick={(e)=>{e.stopPropagation();toggle();}}>{playing?I.pause:I.play}</button>
       <div className="audio-track" ref={trackRef} onPointerDown={onTrackPointerDown} role="slider" aria-label="Позиция воспроизведения" tabIndex={0}
         onKeyDown={(e)=>{
           const a=audioRef.current;if(!a||!a.duration)return;
@@ -936,7 +936,7 @@ function SettingsModal({onClose}){
           <h2>Настройка промтов</h2>
           <div style={{display:'flex',alignItems:'center',gap:'.6rem'}}>
             {msg&&<span style={{fontSize:'.8rem',color:'var(--gn)'}}>{I.check} {msg}</span>}
-            <button className="btn btn-g" onClick={onClose}>{I.x}</button>
+            <button className="btn btn-g" aria-label="Закрыть" onClick={onClose}>{I.x}</button>
           </div>
         </div>
         <div className="overlay-body">
@@ -1058,7 +1058,7 @@ function ApiSettingsModal({onClose}){
           <h2>ИИ и API</h2>
           <div style={{display:'flex',alignItems:'center',gap:'.6rem'}}>
             {msg&&<span style={{fontSize:'.8rem',color:msg.startsWith('Сохранено')?'var(--gn)':'var(--rd)'}}>{msg}</span>}
-            <button className="btn btn-g" onClick={onClose}>{I.x}</button>
+            <button className="btn btn-g" aria-label="Закрыть" onClick={onClose}>{I.x}</button>
           </div>
         </div>
         <div className="overlay-body">
@@ -1356,7 +1356,7 @@ function App(){
       </div>
 
       <div className={'main-area'+(mainTab==='form'&&view==='workspace'?' main-area--workspace':'')}>
-        {error&&<div style={{padding:'.8rem 1.2rem',background:'var(--rd-dim)',color:'var(--rd)',fontSize:'.85rem',borderBottom:'1px solid rgba(248,113,113,.15)'}}>⚠ {error}<button className="btn btn-g" onClick={()=>setError('')} style={{marginLeft:'.5rem',verticalAlign:'middle'}}>{I.x}</button></div>}
+        {error&&<div style={{padding:'.8rem 1.2rem',background:'var(--rd-dim)',color:'var(--rd)',fontSize:'.85rem',borderBottom:'1px solid rgba(248,113,113,.15)'}}>⚠ {error}<button className="btn btn-g" aria-label="Закрыть" onClick={()=>setError('')} style={{marginLeft:'.5rem',verticalAlign:'middle'}}>{I.x}</button></div>}
 
         {mainTab==='form'&&view==='upload'&&<UploadPage onProcess={handleProcess}/>}
         {mainTab==='form'&&view==='processing'&&<ProcessingPage step={step}/>}
