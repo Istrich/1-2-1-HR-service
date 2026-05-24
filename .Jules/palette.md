@@ -1,0 +1,3 @@
+## 2026-05-24 - Custom SVG Icons Missing Accessible Names
+**Learning:** The project's global `I` object renders inline SVGs for icons. When these are used in buttons without text (e.g., `<button>{I.x}</button>`), they completely lack accessible names for screen readers. The custom audio slider also lacks critical ARIA slider attributes (`aria-valuenow`, `aria-valuetext`).
+**Action:** Always ensure `aria-label` is manually added to buttons utilizing solely `I.*` icons in this codebase. Add full ARIA slider state attributes when using `role="slider"`. All text and labels must be in Russian to match the app's primary language.
