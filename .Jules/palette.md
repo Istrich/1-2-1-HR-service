@@ -1,0 +1,3 @@
+## 2024-05-28 - ARIA Labels for SVG Icon Buttons
+**Learning:** The project relies on rendering a global `I` object (e.g., `I.x`, `I.out`, `I.play`) inside buttons instead of using SVG components with semantic text. This pattern requires explicitly adding `aria-label` attributes to these buttons so they remain accessible to screen readers, as the SVGs themselves lack inherent semantic descriptions.
+**Action:** Always check newly created or modified icon-only buttons that use the `I.*` pattern for missing `aria-label`s, and make sure any labels added are localized in Russian as per project guidelines.
