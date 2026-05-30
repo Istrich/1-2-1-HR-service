@@ -486,7 +486,7 @@ function AudioPlayer({src,audioRef}){
   return(
     <div className="ws-audio">
       <audio ref={audioRef} src={src} preload="auto" playsInline/>
-      <button type="button" className="audio-play" onClick={(e)=>{e.stopPropagation();toggle();}}>{playing?I.pause:I.play}</button>
+      <button type="button" className="audio-play" onClick={(e)=>{e.stopPropagation();toggle();}} aria-label={playing ? "Пауза" : "Воспроизведение"}>{playing?I.pause:I.play}</button>
       <div className="audio-track" ref={trackRef} onPointerDown={onTrackPointerDown} role="slider" aria-label="Позиция воспроизведения" tabIndex={0}
         onKeyDown={(e)=>{
           const a=audioRef.current;if(!a||!a.duration)return;
@@ -810,7 +810,7 @@ function Workspace({data,onReset}){
             {!emailText&&<button type="button" className="btn btn-g" onClick={()=>void toggleReportEdit()} title={reportEditMode?'Просмотр с оформлением':'Редактировать текст отчёта'}>
               {reportEditMode?'Просмотр':'Редактировать'}
             </button>}
-            {!emailText&&<button type="button" className="btn btn-g" onClick={doEmail} disabled={emailLoading} title="Письмо с договорённостями">
+            {!emailText&&<button type="button" className="btn btn-g" onClick={doEmail} disabled={emailLoading} title="Письмо с договорённостями" aria-label="Сформировать письмо">
               {emailLoading?<span className="spinner"/>:I.mail}
             </button>}
           </div>
@@ -881,7 +881,7 @@ function Workspace({data,onReset}){
                   disabled={refining}
                   rows={3}
                 />
-                <button className="btn btn-am" onClick={doRefine} disabled={refining||!refineText.trim()} style={{alignSelf:'stretch'}}>
+                <button className="btn btn-am" onClick={doRefine} disabled={refining||!refineText.trim()} style={{alignSelf:'stretch'}} aria-label="Отправить запрос">
                   {refining?<span className="spinner"/>:I.send}
                 </button>
               </div>
@@ -936,7 +936,7 @@ function SettingsModal({onClose}){
           <h2>Настройка промтов</h2>
           <div style={{display:'flex',alignItems:'center',gap:'.6rem'}}>
             {msg&&<span style={{fontSize:'.8rem',color:'var(--gn)'}}>{I.check} {msg}</span>}
-            <button className="btn btn-g" onClick={onClose}>{I.x}</button>
+            <button className="btn btn-g" onClick={onClose} aria-label="Закрыть">{I.x}</button>
           </div>
         </div>
         <div className="overlay-body">
@@ -1058,7 +1058,7 @@ function ApiSettingsModal({onClose}){
           <h2>ИИ и API</h2>
           <div style={{display:'flex',alignItems:'center',gap:'.6rem'}}>
             {msg&&<span style={{fontSize:'.8rem',color:msg.startsWith('Сохранено')?'var(--gn)':'var(--rd)'}}>{msg}</span>}
-            <button className="btn btn-g" onClick={onClose}>{I.x}</button>
+            <button className="btn btn-g" onClick={onClose} aria-label="Закрыть">{I.x}</button>
           </div>
         </div>
         <div className="overlay-body">
@@ -1346,7 +1346,7 @@ function App(){
             <div className="user-dot">{user[0]}</div>
             {user}
           </div>
-          <button className="btn btn-g" onClick={logout} title="Выйти">{I.out}</button>
+          <button className="btn btn-g" onClick={logout} title="Выйти" aria-label="Выйти">{I.out}</button>
         </div>
       </div>
 
@@ -1356,7 +1356,7 @@ function App(){
       </div>
 
       <div className={'main-area'+(mainTab==='form'&&view==='workspace'?' main-area--workspace':'')}>
-        {error&&<div style={{padding:'.8rem 1.2rem',background:'var(--rd-dim)',color:'var(--rd)',fontSize:'.85rem',borderBottom:'1px solid rgba(248,113,113,.15)'}}>⚠ {error}<button className="btn btn-g" onClick={()=>setError('')} style={{marginLeft:'.5rem',verticalAlign:'middle'}}>{I.x}</button></div>}
+        {error&&<div style={{padding:'.8rem 1.2rem',background:'var(--rd-dim)',color:'var(--rd)',fontSize:'.85rem',borderBottom:'1px solid rgba(248,113,113,.15)'}}>⚠ {error}<button className="btn btn-g" onClick={()=>setError('')} style={{marginLeft:'.5rem',verticalAlign:'middle'}} aria-label="Закрыть ошибку">{I.x}</button></div>}
 
         {mainTab==='form'&&view==='upload'&&<UploadPage onProcess={handleProcess}/>}
         {mainTab==='form'&&view==='processing'&&<ProcessingPage step={step}/>}
