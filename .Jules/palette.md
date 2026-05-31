@@ -1,0 +1,3 @@
+## 2024-03-20 - [ARIA labels required for injected SVG icons]
+**Learning:** In this project, SVG icons are injected from a global `I` object (e.g., `{I.x}`, `{I.play}`). There is no centralized `<Icon />` component to automatically handle accessibility attributes.
+**Action:** When adding new interactive elements (like buttons) that only contain an icon from the `I` object, you must manually specify an `aria-label` (and ideally a `title` tooltip) on the parent interactive element in Russian (e.g., `aria-label="Закрыть"`), otherwise screen readers will just read out "button" without context.
