@@ -1,0 +1,3 @@
+## 2024-05-18 - Missing ARIA labels and titles on icon-only buttons
+**Learning:** The application uses a global `I` object to render inline SVG icons. However, multiple icon-only buttons (like play/pause in AudioPlayer, send in Workspace, close in modals) were implemented without `aria-label` or `title` attributes, making them inaccessible to screen readers and lacking tooltips for mouse users.
+**Action:** When adding new icon-only buttons using the `I` object, always include descriptive `aria-label` and `title` attributes in Russian (the app UI language) to ensure accessibility and usability.
