@@ -1,0 +1,3 @@
+## 2024-05-24 - Require aria-label for Custom Icons
+**Learning:** The React frontend uses a custom global `I` object (e.g., `I.x`, `I.out`, `I.play`) to render SVG icons inline. When these icon components are used within `<button>` elements without accompanying text (icon-only buttons), screen readers do not have a programmatic way to announce the button`s intent, resulting in an inaccessible experience.
+**Action:** Whenever adding or reviewing icon-only buttons that rely on the global `I` object, always ensure both a descriptive `aria-label` and `title` attribute are included on the button in Russian.
