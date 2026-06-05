@@ -1,0 +1,3 @@
+## 2025-06-05 - Add ARIA Labels to Icon-Only Buttons
+**Learning:** Found multiple instances of icon-only buttons (using the global `I` object for SVG icons) lacking `aria-label` attributes for screen readers and tooltips (`title`) for visual context. Accessibility in Russian is key.
+**Action:** Always verify that every `<button>` element containing only an `I.*` icon has both `aria-label` and `title` attributes with appropriate Russian text (e.g. "Закрыть" for `I.x`).
