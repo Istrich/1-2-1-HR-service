@@ -1,0 +1,3 @@
+## 2024-05-18 - Added Accessibility Attributes to Icon-only Buttons
+**Learning:** React frontend uses a global `I` object to render SVG icons in icon-only buttons. Many of these buttons lack `aria-label` and `title` attributes, making them inaccessible to screen readers and difficult to understand without tooltips. Since the UI language is Russian, accessibility attributes must be localized.
+**Action:** When adding or updating icon-only buttons using the `I` object (e.g., `I.x`, `I.out`), always include localized (Russian) `aria-label` and `title` attributes to ensure keyboard accessibility and tooltip affordances.
