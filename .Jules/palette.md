@@ -1,0 +1,3 @@
+## 2024-03-24 - Added ARIA labels to icon-only SVG buttons
+**Learning:** This application heavily utilizes a global `I` object (e.g., `{I.x}`, `{I.play}`, `{I.pause}`) within `static/index.html` to inject SVG icons into React buttons. Developers often forget to include `aria-label` or `title` when rendering these buttons because the global object obfuscates the absence of text. This is a critical recurring pattern leading to poor screen reader accessibility.
+**Action:** Whenever adding or modifying buttons that rely solely on the `I` object for content, always ensure explicit `aria-label` and `title` attributes are included in Russian.
