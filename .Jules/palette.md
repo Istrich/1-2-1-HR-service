@@ -1,0 +1,3 @@
+## 2024-11-28 - Icon-only buttons lacking accessibility attributes
+**Learning:** Found an accessibility pattern where globally rendered SVG icons (via the `I` object, like `I.x` and `I.send`) and other icon-only buttons lacked essential `aria-label` and `title` attributes, severely impacting screen reader functionality and tooltips for sighted users relying on them.
+**Action:** When adding or updating icon-only buttons in this app, ALWAYS apply descriptive `aria-label` and `title` attributes in Russian (the application's language).
