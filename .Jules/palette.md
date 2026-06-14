@@ -1,0 +1,3 @@
+## 2024-06-14 - Missing ARIA Attributes on Custom UI Controls and Icon Buttons
+**Learning:** This app uses custom UI controls like audio sliders (`role="slider"`) and SVG-based icon-only buttons (via the global `I` object) which often lack necessary ARIA state attributes (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-valuetext`) and descriptive `aria-label`s. This makes them inaccessible to screen readers.
+**Action:** When implementing or modifying custom UI sliders (`role="slider"`), always ensure `aria-valuemin`, `aria-valuemax`, `aria-valuenow`, and `aria-valuetext` are dynamically updated. Additionally, any icon-only button must include a descriptive `aria-label` and `title` attribute in Russian (e.g. `aria-label="Скрыть ошибку"`).
