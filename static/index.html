@@ -415,10 +415,10 @@ function Login({onLogin}){
   return(
     <div className="login-wrap"><form className="login-box" onSubmit={go}>
       <div className="logo"><h1>HR 1-2-1</h1><p>аналитика интервью</p></div>
-      <div className="fld"><label>Логин</label><input type="text" value={u} onChange={e=>setU(e.target.value)} autoFocus/></div>
-      <div className="fld"><label>Пароль</label><input type="password" value={p} onChange={e=>setP(e.target.value)}/></div>
+      <div className="fld"><label htmlFor="login-username">Логин</label><input id="login-username" type="text" value={u} onChange={e=>setU(e.target.value)} autoFocus/></div>
+      <div className="fld"><label htmlFor="login-password">Пароль</label><input id="login-password" type="password" value={p} onChange={e=>setP(e.target.value)}/></div>
       <button className="btn btn-am btn-full" disabled={ld}>{ld?<span className="spinner"/>:'Войти'}</button>
-      {err&&<div className="err">{err}</div>}
+      {err&&<div className="err" role="alert" aria-live="polite">{err}</div>}
     </form></div>
   );
 }
@@ -812,7 +812,7 @@ function Workspace({data,onReset}){
             {!emailText&&<button type="button" className="btn btn-g" onClick={()=>void toggleReportEdit()} title={reportEditMode?'Просмотр с оформлением':'Редактировать текст отчёта'}>
               {reportEditMode?'Просмотр':'Редактировать'}
             </button>}
-            {!emailText&&<button type="button" className="btn btn-g" onClick={doEmail} disabled={emailLoading} title="Письмо с договорённостями">
+            {!emailText&&<button type="button" aria-label="Сформировать письмо" className="btn btn-g" onClick={doEmail} disabled={emailLoading} title="Письмо с договорённостями">
               {emailLoading?<span className="spinner"/>:I.mail}
             </button>}
           </div>
@@ -883,7 +883,7 @@ function Workspace({data,onReset}){
                   disabled={refining}
                   rows={3}
                 />
-                <button className="btn btn-am" onClick={doRefine} disabled={refining||!refineText.trim()} style={{alignSelf:'stretch'}}>
+                <button aria-label="Отправить запрос" className="btn btn-am" onClick={doRefine} disabled={refining||!refineText.trim()} style={{alignSelf:'stretch'}}>
                   {refining?<span className="spinner"/>:I.send}
                 </button>
               </div>
