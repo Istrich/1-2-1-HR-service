@@ -387,7 +387,7 @@ function PanelSearchToolbar({value,onChange,matchCount,currentIdx,onPrev,onNext,
   const hasQ=(value||'').trim().length>0;
   return(
     <div className="panel-toolbar">
-      <input type="search" role="searchbox" placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} autoComplete="off"/>
+      <input type="search" role="searchbox" placeholder={placeholder} aria-label={placeholder} value={value} onChange={e=>onChange(e.target.value)} autoComplete="off"/>
       {hasQ&&(
         <>
           <span className="search-meta">{matchCount===0?'Нет совпадений':`${Math.min(currentIdx+1,matchCount)} / ${matchCount}`}</span>
@@ -488,8 +488,6 @@ function AudioPlayer({src,audioRef}){
       <audio ref={audioRef} src={src} preload="auto" playsInline/>
       <button type="button" className="audio-play" aria-label={playing?'Пауза':'Воспроизведение'} title={playing?'Пауза':'Воспроизведение'} onClick={(e)=>{e.stopPropagation();toggle();}}>{playing?I.pause:I.play}</button>
       <div className="audio-track" ref={trackRef} onPointerDown={onTrackPointerDown} role="slider" aria-label="Позиция воспроизведения" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={`${curTime} из ${durTime}`} tabIndex={0}
-      <button type="button" className="audio-play" aria-label={playing ? "Пауза" : "Воспроизвести"} title={playing ? "Пауза" : "Воспроизвести"} onClick={(e)=>{e.stopPropagation();toggle();}}>{playing?I.pause:I.play}</button>
-      <div className="audio-track" ref={trackRef} onPointerDown={onTrackPointerDown} role="slider" aria-label="Позиция воспроизведения" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={curTime} tabIndex={0}
         onKeyDown={(e)=>{
           const a=audioRef.current;if(!a||!a.duration)return;
           const step=Math.min(5,a.duration*0.02);
@@ -1230,7 +1228,7 @@ function HistoryPage({onOpen,refreshKey}){
     <div className="history-page">
       <h2>История отчётов</h2>
       <div className="history-toolbar">
-        <input type="search" placeholder="Поиск по названию…" value={search} onChange={e=>setSearch(e.target.value)} autoComplete="off"/>
+        <input type="search" placeholder="Поиск по названию…" aria-label="Поиск по названию отчёта" value={search} onChange={e=>setSearch(e.target.value)} autoComplete="off"/>
         {loading&&<span className="spinner" style={{opacity:.7}}/>}
       </div>
       <div className="history-list">
