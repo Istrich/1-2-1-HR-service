@@ -387,13 +387,13 @@ function PanelSearchToolbar({value,onChange,matchCount,currentIdx,onPrev,onNext,
   const hasQ=(value||'').trim().length>0;
   return(
     <div className="panel-toolbar">
-      <input type="search" role="searchbox" placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} autoComplete="off"/>
+      <input type="search" role="searchbox" placeholder={placeholder} aria-label={placeholder} title={placeholder} value={value} onChange={e=>onChange(e.target.value)} autoComplete="off"/>
       {hasQ&&(
         <>
           <span className="search-meta">{matchCount===0?'Нет совпадений':`${Math.min(currentIdx+1,matchCount)} / ${matchCount}`}</span>
           <div className="search-nav">
-            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onPrev} title="Предыдущее вхождение">‹</button>
-            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onNext} title="Следующее вхождение">›</button>
+            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onPrev} aria-label="Предыдущее вхождение" title="Предыдущее вхождение">‹</button>
+            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onNext} aria-label="Следующее вхождение" title="Следующее вхождение">›</button>
           </div>
         </>
       )}
@@ -488,8 +488,6 @@ function AudioPlayer({src,audioRef}){
       <audio ref={audioRef} src={src} preload="auto" playsInline/>
       <button type="button" className="audio-play" aria-label={playing?'Пауза':'Воспроизведение'} title={playing?'Пауза':'Воспроизведение'} onClick={(e)=>{e.stopPropagation();toggle();}}>{playing?I.pause:I.play}</button>
       <div className="audio-track" ref={trackRef} onPointerDown={onTrackPointerDown} role="slider" aria-label="Позиция воспроизведения" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={`${curTime} из ${durTime}`} tabIndex={0}
-      <button type="button" className="audio-play" aria-label={playing ? "Пауза" : "Воспроизвести"} title={playing ? "Пауза" : "Воспроизвести"} onClick={(e)=>{e.stopPropagation();toggle();}}>{playing?I.pause:I.play}</button>
-      <div className="audio-track" ref={trackRef} onPointerDown={onTrackPointerDown} role="slider" aria-label="Позиция воспроизведения" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={curTime} tabIndex={0}
         onKeyDown={(e)=>{
           const a=audioRef.current;if(!a||!a.duration)return;
           const step=Math.min(5,a.duration*0.02);
@@ -523,7 +521,7 @@ function UploadPage({onProcess}){
       </div>
       <div className="divider">или по ссылке</div>
       <div className="url-row">
-        <input type="text" placeholder="https://drive.google.com/..." value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleUrl()}/>
+        <input type="text" placeholder="https://drive.google.com/..." aria-label="Ссылка на файл" title="Ссылка на файл" value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleUrl()}/>
         <button className="btn btn-am" onClick={handleUrl} disabled={!url.trim()}>Обработать</button>
       </div>
     </div></div>
@@ -1230,7 +1228,7 @@ function HistoryPage({onOpen,refreshKey}){
     <div className="history-page">
       <h2>История отчётов</h2>
       <div className="history-toolbar">
-        <input type="search" placeholder="Поиск по названию…" value={search} onChange={e=>setSearch(e.target.value)} autoComplete="off"/>
+        <input type="search" placeholder="Поиск по названию…" aria-label="Поиск по названию" title="Поиск по названию" value={search} onChange={e=>setSearch(e.target.value)} autoComplete="off"/>
         {loading&&<span className="spinner" style={{opacity:.7}}/>}
       </div>
       <div className="history-list">
@@ -1241,7 +1239,7 @@ function HistoryPage({onOpen,refreshKey}){
               onKeyDown={e=>{if((e.key==='Enter'||e.key===' ')&&!(editing&&editing.id===it.id)){e.preventDefault();onOpen(it.id)}}}
               onClick={()=>{if(editing&&editing.id===it.id)return;onOpen(it.id)}}>
               {editing&&editing.id===it.id?(
-                <input className="title-edit" value={editing.value}
+                <input className="title-edit" value={editing.value} aria-label="Новое название отчёта" title="Новое название отчёта"
                   onChange={e=>setEditing(ed=>({...ed,value:e.target.value}))}
                   onClick={e=>e.stopPropagation()}
                   onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commitRename()}}}

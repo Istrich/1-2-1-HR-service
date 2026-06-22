@@ -5,3 +5,6 @@
 
 **Learning:** The app makes extensive use of the global `I` object for SVG icons, leading to many icon-only buttons. The custom audio slider (`role="slider"`) is missing `aria-valuenow` to convey progress to screen readers. Relying only on visual context or `title` attributes for icon buttons breaks accessibility for keyboard/screen reader users.
 **Action:** Always add explicit `aria-label` and `title` to icon-only buttons in Russian, and proper ARIA value attributes (`aria-valuemin`, `aria-valuemax`, `aria-valuenow`, `aria-valuetext`) to `role="slider"` elements.
+## 2024-06-22 - Missing ARIA Labels on Text-Symbol Buttons and Unlabeled Inputs
+**Learning:** Found several inputs (like the search bar, file URL input, and inline history title editor) lacking visible `<label>` tags and `aria-label` attributes. Additionally, text-symbol navigation buttons (e.g., `‹`, `›`) lacked screen-reader-friendly descriptions.
+**Action:** Always ensure that inputs without a visible `label` (like search boxes or inline edits) receive descriptive `aria-label` and `title` attributes in Russian (e.g. `aria-label="Поиск по названию"`). Apply the same to text-symbol buttons (e.g. `aria-label="Следующее вхождение"`).
