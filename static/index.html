@@ -387,13 +387,13 @@ function PanelSearchToolbar({value,onChange,matchCount,currentIdx,onPrev,onNext,
   const hasQ=(value||'').trim().length>0;
   return(
     <div className="panel-toolbar">
-      <input type="search" role="searchbox" placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} autoComplete="off"/>
+      <input type="search" role="searchbox" aria-label="Поиск по транскрипту" placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} autoComplete="off"/>
       {hasQ&&(
         <>
           <span className="search-meta">{matchCount===0?'Нет совпадений':`${Math.min(currentIdx+1,matchCount)} / ${matchCount}`}</span>
           <div className="search-nav">
-            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onPrev} title="Предыдущее вхождение">‹</button>
-            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onNext} title="Следующее вхождение">›</button>
+            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onPrev} aria-label="Предыдущее вхождение" title="Предыдущее вхождение">‹</button>
+            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onNext} aria-label="Следующее вхождение" title="Следующее вхождение">›</button>
           </div>
         </>
       )}
@@ -516,14 +516,14 @@ function UploadPage({onProcess}){
         onDragOver={e=>{e.preventDefault();setOver(true)}}onDragLeave={()=>setOver(false)}
         onDrop={e=>{e.preventDefault();setOver(false);handleFile(e.dataTransfer?.files?.[0])}}
         onClick={()=>fileRef.current?.click()}>
-        <input ref={fileRef} type="file" accept="audio/*,video/*" onChange={e=>{handleFile(e.target.files?.[0]);e.target.value=''}}/>
+        <input ref={fileRef} type="file" aria-label="Выбрать файл" accept="audio/*,video/*" onChange={e=>{handleFile(e.target.files?.[0]);e.target.value=''}}/>
         <div className="dz-icon">{I.up}</div>
         <h3>Перетащите файл или нажмите для выбора</h3>
         <p>mp3, wav, ogg, m4a, mp4, webm и др.</p>
       </div>
       <div className="divider">или по ссылке</div>
       <div className="url-row">
-        <input type="text" placeholder="https://drive.google.com/..." value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleUrl()}/>
+        <input type="text" aria-label="Ссылка на файл" placeholder="https://drive.google.com/..." value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleUrl()}/>
         <button className="btn btn-am" onClick={handleUrl} disabled={!url.trim()}>Обработать</button>
       </div>
     </div></div>
@@ -1096,7 +1096,7 @@ function ApiSettingsModal({onClose}){
                     <p className="hint" style={{fontSize:'.72rem',marginBottom:'.4rem'}}>
                       {whisperLocal.error==='import_failed'?'Пакет openai-whisper на сервере недоступен — укажите имя модели вручную.':'Не удалось получить список моделей — введите имя вручную (tiny, base, small, medium…).'}
                     </p>
-                    <input type="text" value={whisperModel} onChange={e=>setWhisperModel(e.target.value)} placeholder="small"/>
+                    <input type="text" aria-label="Локальная модель Whisper" value={whisperModel} onChange={e=>setWhisperModel(e.target.value)} placeholder="small"/>
                   </>
                 ):null}
               </div>
@@ -1143,7 +1143,7 @@ function ApiSettingsModal({onClose}){
                   </>
                 ):openaiPresets!==null?(
                   <>
-                    <input type="text" value={openaiReportModel} onChange={e=>setOpenaiReportModel(e.target.value)} placeholder="gpt-4o"/>
+                    <input type="text" aria-label="Модель OpenAI для отчёта" value={openaiReportModel} onChange={e=>setOpenaiReportModel(e.target.value)} placeholder="gpt-4o"/>
                     <p className="hint" style={{fontSize:'.72rem',marginTop:'.35rem'}}>Список пресетов недоступен — введите id модели вручную.</p>
                   </>
                 ):null}
@@ -1155,12 +1155,12 @@ function ApiSettingsModal({onClose}){
             <h4>Ключи API</h4>
             <p className="hint">Сохраняются в файл .env на сервере. Пустое поле — не менять сохранённый ключ.</p>
             <div className="fld">
-              <label>OpenAI {openaiKeySet&&<span style={{color:'var(--gn)',fontSize:'.72rem'}}> (ключ задан)</span>}</label>
-              <input type="password" className="settings-api-key" autoComplete="new-password" value={openaiKey} onChange={e=>setOpenaiKey(e.target.value)} placeholder={openaiKeySet?'Новый ключ или оставьте пустым':'sk-…'}/>
+              <label htmlFor="openaiKeyInput">OpenAI {openaiKeySet&&<span style={{color:'var(--gn)',fontSize:'.72rem'}}> (ключ задан)</span>}</label>
+              <input id="openaiKeyInput" type="password" aria-label="Ключ OpenAI API" className="settings-api-key" autoComplete="new-password" value={openaiKey} onChange={e=>setOpenaiKey(e.target.value)} placeholder={openaiKeySet?'Новый ключ или оставьте пустым':'sk-…'}/>
             </div>
             <div className="fld">
-              <label>DeepSeek {deepseekKeySet&&<span style={{color:'var(--gn)',fontSize:'.72rem'}}> (ключ задан)</span>}</label>
-              <input type="password" className="settings-api-key" autoComplete="new-password" value={deepseekKey} onChange={e=>setDeepseekKey(e.target.value)} placeholder={deepseekKeySet?'Новый ключ или оставьте пустым':'sk-…'}/>
+              <label htmlFor="deepseekKeyInput">DeepSeek {deepseekKeySet&&<span style={{color:'var(--gn)',fontSize:'.72rem'}}> (ключ задан)</span>}</label>
+              <input id="deepseekKeyInput" type="password" aria-label="Ключ DeepSeek API" className="settings-api-key" autoComplete="new-password" value={deepseekKey} onChange={e=>setDeepseekKey(e.target.value)} placeholder={deepseekKeySet?'Новый ключ или оставьте пустым':'sk-…'}/>
             </div>
             <div className="prompt-actions">
               <button className="btn btn-am" onClick={saveAll} disabled={saving}>{saving?<span className="spinner"/>:'Сохранить в .env'}</button>
@@ -1230,7 +1230,7 @@ function HistoryPage({onOpen,refreshKey}){
     <div className="history-page">
       <h2>История отчётов</h2>
       <div className="history-toolbar">
-        <input type="search" placeholder="Поиск по названию…" value={search} onChange={e=>setSearch(e.target.value)} autoComplete="off"/>
+        <input type="search" aria-label="Поиск отчётов" placeholder="Поиск по названию…" value={search} onChange={e=>setSearch(e.target.value)} autoComplete="off"/>
         {loading&&<span className="spinner" style={{opacity:.7}}/>}
       </div>
       <div className="history-list">
@@ -1241,7 +1241,7 @@ function HistoryPage({onOpen,refreshKey}){
               onKeyDown={e=>{if((e.key==='Enter'||e.key===' ')&&!(editing&&editing.id===it.id)){e.preventDefault();onOpen(it.id)}}}
               onClick={()=>{if(editing&&editing.id===it.id)return;onOpen(it.id)}}>
               {editing&&editing.id===it.id?(
-                <input className="title-edit" value={editing.value}
+                <input className="title-edit" aria-label="Редактирование названия отчёта" value={editing.value}
                   onChange={e=>setEditing(ed=>({...ed,value:e.target.value}))}
                   onClick={e=>e.stopPropagation()}
                   onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commitRename()}}}
