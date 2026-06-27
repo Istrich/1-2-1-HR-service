@@ -12,6 +12,7 @@ env/
 outputs/
 data/
 logs/
+uploads/
 
 # Python cache and build artifacts
 __pycache__/
@@ -35,7 +36,20 @@ dist/
 # Windows desktop build artifacts
 *.exe
 
-# IDE/editor and OS files
+# IDE / editor / OS
 .idea/
 .vscode/
 .DS_Store
+Thumbs.db
+
+# Cursor, agents, internal dev docs (не в репозиторий)
+.cursor/
+.Jules/
+AGENTS.md
+context.md
+docs/
+
+# Tests and local experiments
+test_*.py
+tests/
+*_test.py
