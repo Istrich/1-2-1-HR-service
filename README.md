@@ -34,12 +34,7 @@
 
 ### 1. Системные зависимости
 
-```powershell
-# Опционально: Python 3.11 и ffmpeg через winget
-.\bootstrap_windows_env.bat
-```
-
-Или вручную: [Python 3.11+](https://www.python.org/downloads/), [ffmpeg](https://ffmpeg.org/download.html) в PATH.
+Установите [Python 3.11+](https://www.python.org/downloads/) и [ffmpeg](https://ffmpeg.org/download.html) и добавьте их в `PATH`.
 
 ### 2. Окружение и конфиг
 
@@ -168,7 +163,6 @@ docker compose up -d --build
 ├── app.py                 # FastAPI: API, пайплайн, промты
 ├── static/index.html      # SPA (React 18, CDN)
 ├── requirements.txt
-├── bootstrap_windows_env.bat  # Опционально: Python/ffmpeg через winget
 ├── Dockerfile
 ├── docker-compose.yml
 ├── scripts/               # Docker: init, автозапуск
