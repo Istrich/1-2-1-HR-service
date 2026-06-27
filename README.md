@@ -1,240 +1,216 @@
-# HR 1-2-1 Web — Веб-версия бота для аналитики интервью
+# HR 1-2-1 Web
 
 Локальное веб-приложение для обработки аудиозаписей 1-2-1 интервью:
-транскрипция (OpenAI Whisper) → аналитический HR-отчёт (GPT) → Word-документ (.docx).
+
+**транскрипция (Whisper)** → **HR-отчёт (GPT / DeepSeek)** → **доработка** → **экспорт .docx**
+
+Репозиторий: [github.com/Istrich/1-2-1-HR-service](https://github.com/Istrich/1-2-1-HR-service)
 
 ## Возможности
 
-- Загрузка аудио/видео-файлов или обработка по ссылке (Google Drive, Dropbox)
-- Транскрипция с таймкодами: локально **openai-whisper** (по умолчанию, см. `WHISPER_MODEL` в `.env`) или через API OpenAI (`WHISPER_BACKEND=api`)
-- Интерфейс workspace: плеер, транскрипт с сегментами, отчёт, доработка отчёта по комментарию, экспорт в Word; вкладка «История» — сохранённые отчёты (поиск, переименование, удаление, повторное открытие)
-- Генерация структурированного HR-отчёта через GPT
-- Формирование Word-документа (.docx) по кнопке экспорта
+- Загрузка аудио/видео или обработка по ссылке (Google Drive, Dropbox)
+- Транскрипция с таймкодами: **локально** (`openai-whisper`) или через **OpenAI API** (`WHISPER_BACKEND=api`)
+- Workspace: плеер, транскрипт, отчёт, доработка по комментарию, экспорт Word
+- Вкладка «История»: поиск, переименование, удаление, повторное открытие отчётов
 - Генерация письма с фиксацией договорённостей
-- Настройка промтов (модальное окно в шапке)
-- Авторизация с поддержкой нескольких пользователей
-- Адаптивная вёрстка
+- Настройка промтов и режимов ИИ в UI («ИИ и API»)
+- **Живой прогресс обработки** — этапы с сервера (`GET /api/process/status`)
+- Авторизация, несколько пользователей (JWT)
 
-## Быстрый старт на Mac Mini
+## Требования
 
-### 1. Установка зависимостей
+| Компонент | Версия |
+|-----------|--------|
+| Python | 3.11+ |
+| ffmpeg | в `PATH` (обязателен) |
+| OpenAI API | для Whisper API и/или отчёта |
+| DeepSeek API | опционально, если `REPORT_AI_PROVIDER=deepseek` |
 
-```bash
-# Homebrew (если нет)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+Для локального Whisper (`WHISPER_BACKEND=local`) при первом запуске скачиваются веса модели; нужны RAM и место на диске (модель `small` — разумный компромисс).
 
-# Python 3.11+ и ffmpeg
-brew install python@3.12 ffmpeg
+---
+
+## Быстрый старт (Windows)
+
+### 1. Системные зависимости
+
+```powershell
+# Опционально: Python 3.11 и ffmpeg через winget
+.\bootstrap_windows_env.bat
 ```
 
-### 2. Клонирование и настройка
+Или вручную: [Python 3.11+](https://www.python.org/downloads/), [ffmpeg](https://ffmpeg.org/download.html) в PATH.
 
-```bash
-# Перейти в директорию проекта
-cd ~/hr121-web
+### 2. Окружение и конфиг
 
-# Создать виртуальное окружение
-python3 -m venv venv
-source venv/bin/activate
-
-# Установить зависимости
+```powershell
+cd путь\к\1-2-1-HR-service
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# Скопировать и настроить конфиг
-cp .env.example .env
-nano .env  # вписать OPENAI_API_KEY и пользователей
+copy .env.example .env
+# Отредактируйте .env: USERS, OPENAI_API_KEY (и при необходимости другие ключи)
 ```
 
 ### 3. Запуск
 
-```bash
-source venv/bin/activate
+```powershell
+.\.venv\Scripts\Activate.ps1
 python app.py
 ```
 
-Приложение будет доступно по адресу: **http://localhost:8080**
+Откройте **http://localhost:8080** (с других машин в сети: `http://<IP-хоста>:8080`).
 
-Для доступа с других устройств в сети: **http://<IP-мак-мини>:8080**
+Остановка: `Ctrl+C` в терминале.
 
-### 4. Автозапуск (launchd)
+---
 
-Чтобы приложение запускалось автоматически при старте Mac Mini:
+## Быстрый старт (macOS / Linux)
 
 ```bash
-cat > ~/Library/LaunchAgents/com.hr121.web.plist << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.hr121.web</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/Users/YOUR_USERNAME/hr121-web/venv/bin/python</string>
-        <string>/Users/YOUR_USERNAME/hr121-web/app.py</string>
-    </array>
-    <key>WorkingDirectory</key>
-    <string>/Users/YOUR_USERNAME/hr121-web</string>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>/Users/YOUR_USERNAME/hr121-web/logs/stdout.log</string>
-    <key>StandardErrorPath</key>
-    <string>/Users/YOUR_USERNAME/hr121-web/logs/stderr.log</string>
-</dict>
-</plist>
-EOF
+brew install python@3.12 ffmpeg   # или аналог в дистрибутиве
 
-# Заменить YOUR_USERNAME на реальное имя пользователя
-sed -i '' "s/YOUR_USERNAME/$(whoami)/g" ~/Library/LaunchAgents/com.hr121.web.plist
+cd 1-2-1-HR-service
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-# Создать папку для логов
-mkdir -p ~/hr121-web/logs
+cp .env.example .env
+# nano .env
 
-# Включить автозапуск
-launchctl load ~/Library/LaunchAgents/com.hr121.web.plist
+python app.py
 ```
 
-Управление:
+---
+
+## Конфигурация (`.env`)
+
+Скопируйте `.env.example` → `.env`. **Не коммитьте `.env`** — он в `.gitignore`.
+
+| Переменная | Назначение | По умолчанию |
+|------------|------------|--------------|
+| `USERS` | Логины: `user:pass,user2:pass2` | — (обязательно) |
+| `OPENAI_API_KEY` | OpenAI: Whisper API и/или отчёт | — |
+| `DEEPSEEK_API_KEY` | DeepSeek для отчёта/письма | — |
+| `REPORT_AI_PROVIDER` | `openai` \| `deepseek` | `openai` |
+| `OPENAI_REPORT_MODEL` | Модель OpenAI для отчёта | `gpt-4o` |
+| `DEEPSEEK_MODEL` | Модель DeepSeek | `deepseek-chat` |
+| `WHISPER_BACKEND` | `local` \| `api` | `local` |
+| `WHISPER_MODEL` | Модель локального Whisper (`tiny`…`medium`…) | `small` |
+| `SECRET_KEY` | Подпись JWT | генерируется при старте |
+| `JWT_EXPIRE_HOURS` | Срок жизни токена | `24` |
+
+Ключи и режимы можно менять в UI без правки кода (сохраняются в `.env` на сервере).
+
+### Режимы транскрипции
+
+| Режим | Когда использовать |
+|-------|---------------------|
+| `WHISPER_BACKEND=api` | Быстрый старт, нет GPU/RAM; нужен `OPENAI_API_KEY`. Лимит **25 МБ на файл** — длинные записи нарезаются автоматически. |
+| `WHISPER_BACKEND=local` | Без отправки аудио в облако; нужен `openai-whisper` и ffmpeg. |
+
+### Ожидаемое время обработки
+
+Зависит от длины записи и режима. Ориентир для записи ~30 мин при `WHISPER_BACKEND=api`:
+
+- подготовка и нарезка: секунды;
+- транскрипция (несколько частей): 5–15 мин;
+- отчёт GPT: 3–10 мин.
+
+На экране обработки отображается **реальный этап с сервера**, не таймер.
+
+---
+
+## Docker
+
+Данные (`.env`, `outputs/`, кэш Whisper) хранятся на хосте в `HR121_DATA_DIR` (по умолчанию `./data`), а не в образе.
+
 ```bash
-# Остановить
-launchctl unload ~/Library/LaunchAgents/com.hr121.web.plist
-
-# Запустить
-launchctl load ~/Library/LaunchAgents/com.hr121.web.plist
-```
-
-### 5. Docker: образ, данные вне контейнера, автозапуск
-
-Нужны [Docker Desktop для Mac](https://www.docker.com/products/docker-desktop/) (или Colima с `docker compose`). Отчёты, каталог истории, ключи из UI и кэш весов **локального** Whisper хранятся в каталоге на Mac, а не в слое образа: при `docker compose build` и пересоздании контейнера они не пропадают.
-
-**Каталог данных** задаётся переменной `HR121_DATA_DIR` (по умолчанию `./data` рядом с `docker-compose.yml`):
-
-| Путь на хосте | Назначение |
-|---------------|------------|
-| `$HR121_DATA_DIR/.env` | Секреты и настройки (тот же формат, что `.env.example`) |
-| `$HR121_DATA_DIR/outputs/` | Аудио, транскрипты, отчёты, `reports_catalog.json` |
-| `$HR121_DATA_DIR/cache/` | Кэш Whisper (`XDG_CACHE_HOME`), чтобы не качать `.pt` заново |
-
-Первый запуск:
-
-```bash
-cd /path/to/hr121-web
-./scripts/init-docker-data.sh    # создаёт data/.env из .env.example и каталоги
+./scripts/init-docker-data.sh    # создаёт data/.env и каталоги
 # отредактируйте data/.env
 docker compose up -d --build
 ```
 
 Приложение: **http://localhost:8080**. Остановка: `docker compose down` (данные на диске остаются).
 
-Чтобы **при входе в систему** поднимался контейнер (после старта Docker), включите в Docker Desktop опцию вроде *Start Docker Desktop when you log in*, затем установите LaunchAgent:
+Автозапуск на macOS: `deploy/macos/com.hr121.docker.plist.example`, скрипт `scripts/docker-start-on-login.sh`.
 
-```bash
-REPO="$HOME/hr121-web"   # путь к клону
-cp "$REPO/deploy/macos/com.hr121.docker.plist.example" ~/Library/LaunchAgents/com.hr121.docker.plist
-sed -i '' "s|/ABSOLUTE/PATH/TO/hr121-web|$REPO|g" ~/Library/LaunchAgents/com.hr121.docker.plist
-launchctl load ~/Library/LaunchAgents/com.hr121.docker.plist
-```
+---
 
-Скрипт `scripts/docker-start-on-login.sh` ждёт доступности демона Docker и выполняет `docker compose up -d`. Логи: `logs/docker-launchd.log` и `logs/docker-launchd.err.log`.
+## Windows Desktop (окно вместо браузера)
 
-Постоянный каталог вне репозитория (например `~/Library/Application Support/hr121-web`):
-
-```bash
-export HR121_DATA_DIR="$HOME/Library/Application Support/hr121-web"
-mkdir -p "$HR121_DATA_DIR"
-./scripts/init-docker-data.sh
-HR121_DATA_DIR="$HR121_DATA_DIR" docker compose up -d --build
-```
-
-Если раньше использовали `.env` в корне репозитория, скопируйте его: `cp .env "$HR121_DATA_DIR/.env"`.
-
-## Конфигурация (.env)
-
-| Переменная | Описание | Обязательно |
-|---|---|---|
-| `OPENAI_API_KEY` | API-ключ OpenAI | Да |
-| `USERS` | Пользователи (формат `user:pass,user2:pass2`) | Да |
-| `SECRET_KEY` | Ключ для JWT-токенов (генерируется автоматически) | Нет |
-| `JWT_EXPIRE_HOURS` | Время жизни токена авторизации (по умолч. 24ч) | Нет |
-
-## Windows Desktop (.exe)
-
-Текущий веб-режим не меняется: `python app.py` работает как раньше.  
-Desktop-режим — это отдельная обёртка над тем же приложением.
-
-### 0) Установка системных зависимостей (опционально, через bat)
+Веб-режим (`python app.py`) не меняется. Desktop — обёртка `pywebview` над тем же сервером.
 
 ```powershell
-.\bootstrap_windows_env.bat
-```
-
-Скрипт пытается установить:
-- Python 3.11 (`winget`, пакет `Python.Python.3.11`)
-- ffmpeg (`winget`, пакет `Gyan.FFmpeg`, fallback `BtbN.FFmpeg.GPL`)
-
-Если PATH обновился не сразу — закройте терминал и откройте новый.
-
-### 1) Подготовка окружения на Windows
-
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
 pip install -r requirements-desktop.txt
-```
-
-### 2) Локальный запуск в desktop-окне
-
-```powershell
 python desktop_main.py
 ```
 
-### 3) Сборка `.exe` (PyInstaller, onedir)
+Сборка `.exe`: `.\build_windows_exe.bat` или см. `build_windows_exe.bat`.  
+Нужен [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) на целевой машине.
 
-```powershell
-pyinstaller --noconfirm --windowed --onedir --name HR121Desktop `
-  --add-data "static;static" `
-  --add-data "outputs;outputs" `
-  desktop_main.py
-```
+---
 
-Готовый исполняемый файл: `dist\HR121Desktop\HR121Desktop.exe`.
+## API (кратко)
 
-Или одной командой через bat-скрипт из корня проекта:
+Префикс `/api`, защищённые маршруты — заголовок `Authorization: Bearer <jwt>`.
 
-```powershell
-.\build_windows_exe.bat
-```
+| Метод | Путь | Назначение |
+|-------|------|------------|
+| POST | `/api/login` | Вход |
+| GET | `/api/me` | Текущий пользователь |
+| POST | `/api/process/upload` | Загрузка файла → транскрипт + отчёт |
+| POST | `/api/process/url` | Обработка по URL |
+| GET | `/api/process/status` | Прогресс обработки (для UI) |
+| GET | `/api/reports` | История отчётов |
+| GET/PATCH/DELETE | `/api/reports/{id}` | Открыть / переименовать / удалить |
+| POST | `/api/refine` | Доработка отчёта |
+| POST | `/api/export/docx` | Экспорт в Word |
+| POST | `/api/email` | Черновик письма |
+| GET/POST | `/api/prompts` | Промты отчёта и письма |
+| GET/POST | `/api/settings/runtime` | Режимы ИИ и ключи |
 
-Запуск собранного desktop-приложения:
+Статика: `/`, `/static/*`. Файлы `outputs/` — с поддержкой HTTP Range (перемотка в плеере).
 
-```powershell
-.\run_windows_desktop.bat
-```
-
-Примечания:
-- `onedir` выбран специально для надёжной работы со `static/` и `outputs/`.
-- Если окно не открывается на некоторых системах, установите [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
-- `.env` храните рядом с приложением/рабочей директорией, секреты не вшивайте в репозиторий.
+---
 
 ## Структура проекта
 
 ```
-hr121-web/
-├── app.py               # FastAPI-сервер (основная логика)
-├── desktop_main.py      # Desktop-обёртка (Windows)
-├── Dockerfile           # образ приложения (данные — тома в compose)
-├── docker-compose.yml   # тома: .env, outputs, кэш Whisper на хосте
-├── static/
-│   └── index.html       # React SPA (фронтенд)
-├── outputs/             # при запуске без Docker; в .gitignore
-├── data/                # каталог по умолчанию для Docker; в .gitignore
-├── scripts/             # init-docker-data.sh, docker-start-on-login.sh
-├── deploy/macos/        # пример plist для автозапуска Docker-стека
+1-2-1-HR-service/
+├── app.py                 # FastAPI: API, пайплайн, промты
+├── desktop_main.py        # Desktop-launcher (Windows)
+├── static/index.html      # SPA (React 18, CDN)
 ├── requirements.txt
-├── .env                 # Конфиг (не коммитить!)
+├── requirements-desktop.txt
+├── Dockerfile
+├── docker-compose.yml
+├── scripts/               # Docker: init, автозапуск
+├── deploy/macos/          # Пример LaunchAgent
+├── outputs/               # Отчёты и аудио (в .gitignore)
 ├── .env.example
 └── README.md
 ```
+
+---
+
+## Устранение неполадок
+
+| Симптом | Что проверить |
+|---------|----------------|
+| Чёрный экран при открытии | Обновите страницу (Ctrl+F5); смотрите консоль браузера (ошибка JS). |
+| Ошибка 413 от OpenAI | Фрагмент > 25 МБ — обновите код (автонарезка) или уменьшите битрейт исходника. |
+| Долгая «обработка» | Смотрите этап на экране и логи сервера; для длинных MP3 первая транскрипция через API — это нормально. |
+| Двойной диалог выбора файла | Исправлено в актуальной версии `static/index.html`. |
+| `ffmpeg` не найден | Установите ffmpeg и добавьте в PATH. |
+| Кириллица в имени файла (Windows) | Сервер копирует файл в `source.mp3` — должно работать в актуальной версии. |
+
+Логи сервера пишутся в stdout (терминал, где запущен `python app.py`).
+
+---
+
+## Лицензия и секреты
+
+- Не коммитьте `.env`, `outputs/`, `.venv/`.
+- В репозитории только код приложения и пользовательская документация (этот README).
