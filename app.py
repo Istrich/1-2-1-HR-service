@@ -76,6 +76,8 @@ for pair in USERS_RAW.split(","):
         USERS[u.strip()] = p.strip()
 
 CHUNK_DURATION_SECONDS = 15 * 60
+WHISPER_API_MAX_BYTES = 25 * 1024 * 1024  # лимит OpenAI whisper-1 на файл
+WHISPER_API_SAFE_RATIO = 0.85
 TARGET_SAMPLE_RATE = 16000
 TARGET_BITRATE = "64k"
 MAX_UPLOAD_MB = 500
@@ -728,6 +730,31 @@ REFINE_SYSTEM_PROMPT = """
 # Хранилища per-user
 user_prompts: dict[str, dict] = {}
 user_sessions: dict[str, dict] = {}
+process_progress: dict[str, dict[str, Any]] = {}
+_process_progress_lock = threading.Lock()
+
+
+def set_process_progress(
+    user: str,
+    stage: str,
+    message: str,
+    *,
+    chunk: int | None = None,
+    chunks_total: int | None = None,
+) -> None:
+    with _process_progress_lock:
+        process_progress[user] = {
+            "stage": stage,
+            "message": message,
+            "chunk": chunk,
+            "chunks_total": chunks_total,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+def clear_process_progress(user: str) -> None:
+    with _process_progress_lock:
+        process_progress.pop(user, None)
 
 
 # ====== УТИЛИТЫ АУДИО ======
@@ -735,6 +762,36 @@ user_sessions: dict[str, dict] = {}
 def run_ffmpeg(args: list[str]) -> None:
     cmd = ["ffmpeg", "-y", "-loglevel", "error"] + args
     subprocess.run(cmd, check=True)
+
+
+def stage_audio_for_processing(input_path: Path, work_dir: Path) -> Path:
+    """Копия с ASCII-именем — ffmpeg на Windows нестабилен с кириллицей в путях."""
+    ext = input_path.suffix.lower() if input_path.suffix else ".audio"
+    staged = work_dir / f"source{ext}"
+    if input_path.resolve() == staged.resolve():
+        return staged
+    import shutil
+    shutil.copy2(input_path, staged)
+    logger.info("Staged audio as %s (%d bytes)", staged.name, staged.stat().st_size)
+    return staged
+
+
+def get_audio_duration(path: Path) -> float | None:
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError, OSError):
+        return None
 
 
 def convert_to_mp3(input_path: Path, output_dir: Path) -> Path:
@@ -749,10 +806,16 @@ def convert_to_mp3(input_path: Path, output_dir: Path) -> Path:
         ])
     except subprocess.CalledProcessError as e:
         raise ValueError("Не удалось обработать файл — не аудио/видео или повреждён.") from e
+    if not output_path.exists() or output_path.stat().st_size < 1024:
+        raise ValueError("Конвертация дала пустой или повреждённый аудиофайл.")
     return output_path
 
 
 def convert_to_playback_mp3(input_path: Path, output_path: Path) -> Path:
+    import shutil
+    if input_path.suffix.lower() == ".mp3":
+        shutil.copy2(input_path, output_path)
+        return output_path
     try:
         run_ffmpeg([
             "-i", str(input_path),
@@ -762,22 +825,154 @@ def convert_to_playback_mp3(input_path: Path, output_path: Path) -> Path:
             str(output_path),
         ])
     except subprocess.CalledProcessError:
-        import shutil
         shutil.copy2(input_path, output_path)
     return output_path
 
 
-def split_audio_by_time(input_path: Path, output_dir: Path) -> list[Path]:
-    pattern = output_dir / (input_path.stem + "_part_%03d.mp3")
+def _uses_whisper_api() -> bool:
+    return (os.getenv("WHISPER_BACKEND") or "local").strip().lower() in (
+        "api", "openai", "cloud",
+    )
+
+
+def _whisper_api_byte_limit() -> int:
+    return int(WHISPER_API_MAX_BYTES * WHISPER_API_SAFE_RATIO)
+
+
+def max_chunk_duration_seconds(path: Path) -> int:
+    """Длительность сегмента: не больше CHUNK_DURATION и не больше лимита Whisper API (~25 МБ)."""
+    if not _uses_whisper_api():
+        return CHUNK_DURATION_SECONDS
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return CHUNK_DURATION_SECONDS
+    if size <= _whisper_api_byte_limit():
+        duration = get_audio_duration(path)
+        if duration and duration > CHUNK_DURATION_SECONDS:
+            return CHUNK_DURATION_SECONDS
+        return int(duration) if duration else CHUNK_DURATION_SECONDS
+    duration = get_audio_duration(path)
+    if not duration or duration <= 0:
+        return 10 * 60
+    bytes_per_sec = size / duration
+    if bytes_per_sec <= 0:
+        return 10 * 60
+    safe_sec = int(_whisper_api_byte_limit() / bytes_per_sec)
+    safe_sec = max(60, min(CHUNK_DURATION_SECONDS, safe_sec))
+    logger.info(
+        "Whisper API: segment_time=%ds (file %.1f MB, %.0f min)",
+        safe_sec,
+        size / (1024 * 1024),
+        duration / 60,
+    )
+    return safe_sec
+
+
+def _audio_needs_split(path: Path) -> bool:
+    duration = get_audio_duration(path)
+    if duration is not None and duration > max_chunk_duration_seconds(path):
+        return True
+    if _uses_whisper_api():
+        try:
+            if path.stat().st_size > _whisper_api_byte_limit():
+                return True
+        except OSError:
+            pass
+    return False
+
+
+def compress_chunk_for_whisper_api(chunk: Path, output_dir: Path) -> Path:
+    """Сжатие одного чанка до mono 64k — если stream copy всё ещё > 25 МБ."""
+    out = output_dir / f"{chunk.stem}_api.mp3"
     run_ffmpeg([
-        "-i", str(input_path),
-        "-f", "segment",
-        "-segment_time", str(CHUNK_DURATION_SECONDS),
-        "-c", "copy",
-        str(pattern),
+        "-i", str(chunk),
+        "-ac", "1",
+        "-ar", str(TARGET_SAMPLE_RATE),
+        "-b:a", TARGET_BITRATE,
+        str(out),
     ])
-    parts = sorted(output_dir.glob(input_path.stem + "_part_*.mp3"))
-    return parts or [input_path]
+    return out
+
+
+def ensure_chunks_fit_whisper_api(chunks: list[Path], output_dir: Path) -> list[Path]:
+    if not _uses_whisper_api():
+        return chunks
+    limit = _whisper_api_byte_limit()
+    fitted: list[Path] = []
+    for chunk in chunks:
+        try:
+            size = chunk.stat().st_size
+        except OSError:
+            fitted.append(chunk)
+            continue
+        if size <= limit:
+            fitted.append(chunk)
+            continue
+        logger.warning(
+            "Chunk %s is %.1f MB (> API limit), compressing for Whisper",
+            chunk.name,
+            size / (1024 * 1024),
+        )
+        fitted.append(compress_chunk_for_whisper_api(chunk, output_dir))
+    return fitted
+
+
+def prepare_transcription_audio(input_path: Path, output_dir: Path) -> Path:
+    """Whisper API принимает mp3/m4a/wav напрямую — полное перекодирование не нужно."""
+    if input_path.suffix.lower() in (".mp3", ".m4a", ".wav", ".ogg", ".flac", ".webm", ".mp4"):
+        logger.info("Using original audio for transcription: %s", input_path.name)
+        return input_path
+    logger.info("Transcoding %s to mp3 for transcription", input_path.name)
+    return convert_to_mp3(input_path, output_dir)
+
+
+def split_audio_by_time(input_path: Path, output_dir: Path) -> list[Path]:
+    """Нарезка на чанки. Для Whisper API — размер сегмента под лимит 25 МБ."""
+    if not _audio_needs_split(input_path):
+        logger.info("Single chunk (no split needed): %s", input_path.name)
+        return [input_path]
+
+    segment_time = max_chunk_duration_seconds(input_path)
+    ext = input_path.suffix.lower() if input_path.suffix else ".mp3"
+    out_ext = ext if ext in (".mp3", ".m4a", ".wav", ".ogg") else ".mp3"
+    pattern = output_dir / (input_path.stem + f"_part_%03d{out_ext}")
+    segment_strategies: list[list[str]] = [
+        ["-c", "copy"],
+        ["-ac", "1", "-ar", str(TARGET_SAMPLE_RATE), "-b:a", TARGET_BITRATE],
+    ]
+    glob_pattern = input_path.stem + "_part_*"
+    for extra_args in segment_strategies:
+        for old in output_dir.glob(glob_pattern):
+            old.unlink(missing_ok=True)
+        try:
+            run_ffmpeg([
+                "-i", str(input_path),
+                "-f", "segment",
+                "-segment_time", str(segment_time),
+                *extra_args,
+                str(pattern),
+            ])
+        except subprocess.CalledProcessError:
+            logger.warning(
+                "ffmpeg segment failed for %s (strategy=%s)",
+                input_path.name,
+                extra_args,
+            )
+            continue
+        parts = sorted(output_dir.glob(input_path.stem + "_part_*" + out_ext))
+        if not parts:
+            parts = sorted(output_dir.glob(input_path.stem + "_part_*"))
+        if parts:
+            logger.info(
+                "Segmented into %d part(s), %ds each, via %s",
+                len(parts),
+                segment_time,
+                extra_args,
+            )
+            return parts
+    logger.warning("Using whole file without chunking: %s", input_path.name)
+    return [input_path]
 
 
 def format_hhmmss(total_seconds: float) -> str:
@@ -864,12 +1059,25 @@ def transcribe_chunk(path: Path, language: str = "ru"):
     return tr
 
 
-def transcribe_full_audio(chunks: list[Path]) -> tuple[str, list[dict]]:
+def transcribe_full_audio(
+    chunks: list[Path],
+    progress_user: str | None = None,
+) -> tuple[str, list[dict]]:
     all_plain_parts: list[str] = []
     all_segments: list[dict] = []
+    total = len(chunks)
 
+    chunk_offset_sec = 0.0
     for idx, chunk in enumerate(chunks, start=1):
-        logger.info("Transcribing chunk %d/%d: %s", idx, len(chunks), chunk)
+        if progress_user:
+            set_process_progress(
+                progress_user,
+                "transcribe",
+                f"Транскрипция части {idx} из {total}",
+                chunk=idx,
+                chunks_total=total,
+            )
+        logger.info("Transcribing chunk %d/%d: %s", idx, total, chunk)
         tr = transcribe_chunk(chunk)
 
         plain_text = _get_attr_or_key(tr, "text", "") or ""
@@ -877,7 +1085,6 @@ def transcribe_full_audio(chunks: list[Path]) -> tuple[str, list[dict]]:
             all_plain_parts.append(plain_text.strip())
 
         segments = _get_attr_or_key(tr, "segments", []) or []
-        chunk_offset_sec = (idx - 1) * CHUNK_DURATION_SECONDS
 
         for seg in segments:
             seg_start = _get_attr_or_key(seg, "start", None)
@@ -894,6 +1101,12 @@ def transcribe_full_audio(chunks: list[Path]) -> tuple[str, list[dict]]:
                 "end_fmt": format_hhmmss(global_end),
                 "text": seg_text,
             })
+
+        chunk_dur = get_audio_duration(chunk)
+        if chunk_dur and chunk_dur > 0:
+            chunk_offset_sec += chunk_dur
+        else:
+            chunk_offset_sec += CHUNK_DURATION_SECONDS
 
     plain_transcript = "\n\n".join(p for p in all_plain_parts if p)
 
@@ -1376,6 +1589,14 @@ def http_exception_from_process_error(exc: Exception) -> HTTPException:
     if isinstance(exc, APIError):
         msg = str(exc).strip() or "ошибка API"
         logger.error("Upstream API error (Whisper/LLM): %s", msg)
+        if "413" in msg or "maximum content size" in msg.lower():
+            return HTTPException(
+                status_code=413,
+                detail=(
+                    "Фрагмент аудио превышает лимит OpenAI Whisper (25 МБ). "
+                    "Попробуйте снова — файл будет нарезан на меньшие части автоматически."
+                ),
+            )
         return HTTPException(status_code=502, detail=f"Ошибка API: {msg}")
     logger.exception("Необработанное исключение в пайплайне обработки")
     return HTTPException(
@@ -1393,17 +1614,44 @@ async def _process_audio_file(
     session_id = uuid.uuid4().hex[:12]
     title = _default_report_title(source_name)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        tmpdir = Path(tmp)
-        converted = await asyncio.to_thread(convert_to_mp3, input_path, tmpdir)
-        chunks = await asyncio.to_thread(split_audio_by_time, converted, tmpdir)
-        plain_transcript, segments = await asyncio.to_thread(transcribe_full_audio, chunks)
+    logger.info("Processing %s for user %s", source_name or input_path.name, user)
+    set_process_progress(user, "prepare", "Подготовка аудио")
 
-        audio_filename = f"{session_id}_audio.mp3"
-        playback_path = OUTPUTS_DIR / audio_filename
-        await asyncio.to_thread(convert_to_playback_mp3, input_path, playback_path)
+    audio_filename = f"{session_id}_audio.mp3"
+    playback_path = OUTPUTS_DIR / audio_filename
 
-        report_text = await asyncio.to_thread(build_report, plain_transcript, prompts["report"])
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            staged = await asyncio.to_thread(stage_audio_for_processing, input_path, tmpdir)
+            logger.info("Preparing audio…")
+            prepared = await asyncio.to_thread(prepare_transcription_audio, staged, tmpdir)
+            if prepared is staged:
+                logger.info("Using staged file (%d bytes), no transcode", prepared.stat().st_size)
+            else:
+                logger.info("Transcoded to %s (%d bytes)", prepared.name, prepared.stat().st_size)
+            set_process_progress(user, "prepare", "Нарезка аудио на части")
+            chunks = await asyncio.to_thread(split_audio_by_time, prepared, tmpdir)
+            chunks = await asyncio.to_thread(ensure_chunks_fit_whisper_api, chunks, tmpdir)
+            logger.info("Split into %d chunk(s)", len(chunks))
+            logger.info("Starting transcription (%s)…", os.getenv("WHISPER_BACKEND", "local"))
+            plain_transcript, segments = await asyncio.to_thread(
+                transcribe_full_audio, chunks, user,
+            )
+            logger.info(
+                "Transcription done: %d chars, %d segments",
+                len(plain_transcript),
+                len(segments),
+            )
+
+            await asyncio.to_thread(convert_to_playback_mp3, staged, playback_path)
+
+            set_process_progress(user, "report", "Формирование HR-отчёта")
+            logger.info("Building report (%s)…", os.getenv("REPORT_AI_PROVIDER", "openai"))
+            report_text = await asyncio.to_thread(build_report, plain_transcript, prompts["report"])
+            logger.info("Report done: %d chars", len(report_text))
+    finally:
+        clear_process_progress(user)
 
     audio_bytes = playback_path.stat().st_size
     transcript_filename = f"{session_id}_transcript.json"
@@ -1453,35 +1701,51 @@ async def _process_audio_file(
     }
 
 
+@app.get("/api/process/status")
+async def get_process_status(user: str = Depends(get_current_user)):
+    with _process_progress_lock:
+        st = dict(process_progress.get(user) or {})
+    if not st:
+        return {"active": False}
+    return {"active": True, **st}
+
+
 @app.post("/api/process/upload")
 async def process_upload(file: UploadFile = File(...), user: str = Depends(get_current_user)):
+    set_process_progress(user, "upload", "Загрузка файла на сервер")
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         orig_name = file.filename
         input_path = tmpdir / (orig_name or f"{uuid.uuid4().hex}.audio")
         content = await file.read()
         if len(content) > MAX_UPLOAD_MB * 1024 * 1024:
+            clear_process_progress(user)
             raise HTTPException(status_code=413, detail=f"Макс. {MAX_UPLOAD_MB} МБ")
         with open(input_path, "wb") as f:
             f.write(content)
         try:
             return await _process_audio_file(input_path, user, source_name=orig_name)
         except HTTPException:
+            clear_process_progress(user)
             raise
         except Exception as e:
+            clear_process_progress(user)
             raise http_exception_from_process_error(e) from e
 
 
 @app.post("/api/process/url")
 async def process_url(url: str = Form(...), user: str = Depends(get_current_user)):
+    set_process_progress(user, "upload", "Загрузка файла по ссылке")
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         try:
             input_path = await download_url_to_temp(url, tmpdir)
             return await _process_audio_file(input_path, user, source_name=None)
         except HTTPException:
+            clear_process_progress(user)
             raise
         except Exception as e:
+            clear_process_progress(user)
             raise http_exception_from_process_error(e) from e
 
 

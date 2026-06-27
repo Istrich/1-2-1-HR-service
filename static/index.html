@@ -123,6 +123,9 @@ textarea{resize:vertical;min-height:120px;font-family:var(--mono);font-size:.8re
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(212,160,82,.35)}50%{box-shadow:0 0 0 8px rgba(212,160,82,0)}}
 .proc-label{font-size:.88rem;color:var(--tx2)}
 .proc-dot.active~.proc-label{color:var(--tx)}
+.proc-hint{margin-top:1.2rem;font-size:.8rem;color:var(--tx3);text-align:center;line-height:1.5}
+.proc-detail{margin-top:.75rem;font-size:.85rem;color:var(--am);text-align:center;font-weight:500}
+.proc-elapsed{margin-top:.5rem;font-size:.78rem;color:var(--tx2);text-align:center;font-family:var(--mono)}
 
 /* ====== WORKSPACE ====== */
 .workspace{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);min-height:0;height:100%;max-height:100%;overflow:hidden;align-content:stretch}
@@ -488,8 +491,6 @@ function AudioPlayer({src,audioRef}){
       <audio ref={audioRef} src={src} preload="auto" playsInline/>
       <button type="button" className="audio-play" aria-label={playing?'Пауза':'Воспроизведение'} title={playing?'Пауза':'Воспроизведение'} onClick={(e)=>{e.stopPropagation();toggle();}}>{playing?I.pause:I.play}</button>
       <div className="audio-track" ref={trackRef} onPointerDown={onTrackPointerDown} role="slider" aria-label="Позиция воспроизведения" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={`${curTime} из ${durTime}`} tabIndex={0}
-      <button type="button" className="audio-play" aria-label={playing ? "Пауза" : "Воспроизвести"} title={playing ? "Пауза" : "Воспроизвести"} onClick={(e)=>{e.stopPropagation();toggle();}}>{playing?I.pause:I.play}</button>
-      <div className="audio-track" ref={trackRef} onPointerDown={onTrackPointerDown} role="slider" aria-label="Позиция воспроизведения" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={curTime} tabIndex={0}
         onKeyDown={(e)=>{
           const a=audioRef.current;if(!a||!a.duration)return;
           const step=Math.min(5,a.duration*0.02);
@@ -514,8 +515,7 @@ function UploadPage({onProcess}){
       <p className="sub">Аудио или видео 1-2-1 интервью — получите транскрипцию и аналитический отчёт</p>
       <div className={`drop-zone${over?' over':''}`}
         onDragOver={e=>{e.preventDefault();setOver(true)}}onDragLeave={()=>setOver(false)}
-        onDrop={e=>{e.preventDefault();setOver(false);handleFile(e.dataTransfer?.files?.[0])}}
-        onClick={()=>fileRef.current?.click()}>
+        onDrop={e=>{e.preventDefault();setOver(false);handleFile(e.dataTransfer?.files?.[0])}}>
         <input ref={fileRef} type="file" accept="audio/*,video/*" onChange={e=>{handleFile(e.target.files?.[0]);e.target.value=''}}/>
         <div className="dz-icon">{I.up}</div>
         <h3>Перетащите файл или нажмите для выбора</h3>
@@ -531,19 +531,41 @@ function UploadPage({onProcess}){
 }
 
 /* ===== PROCESSING PAGE ===== */
-function ProcessingPage({step}){
-  const steps=['Загрузка файла','Конвертация аудио','Транскрипция','Формирование отчёта'];
+function formatProcElapsed(sec){
+  const m=Math.floor(sec/60),s=sec%60;
+  return m?`${m} мин ${s} с`:`${s} с`;
+}
+
+function ProcessingPage({elapsedSec, status}){
+  const steps=[
+    {id:'upload', label:'Загрузка файла'},
+    {id:'prepare', label:'Подготовка и нарезка'},
+    {id:'transcribe', label:'Транскрипция'},
+    {id:'report', label:'Формирование отчёта'},
+  ];
+  const order=steps.map(s=>s.id);
+  const stage=status?.stage||'upload';
+  const activeIdx=Math.max(0,order.indexOf(stage));
+  function dotState(i){
+    if(i<activeIdx)return'done';
+    if(i===activeIdx)return'active';
+    return'pending';
+  }
+  const detail=status?.message||(activeIdx===0?'Ожидание сервера…':'');
   return(
     <div className="processing-page"><div className="proc-box">
-      <h3>Обработка записи…</h3>
+      <h3>Обработка записи</h3>
       {steps.map((s,i)=>(
-        <div className="proc-step" key={i}>
-          <div className={`proc-dot ${i<step?'done':i===step?'active':'pending'}`}>
-            {i<step?I.check:i+1}
+        <div className="proc-step" key={s.id}>
+          <div className={`proc-dot ${dotState(i)}`}>
+            {dotState(i)==='done'?I.check:dotState(i)==='active'?<span className="spinner" style={{borderTopColor:'#0a0a0a',width:12,height:12}}/>:i+1}
           </div>
-          <span className="proc-label">{s}</span>
+          <span className="proc-label" style={dotState(i)==='active'?{color:'var(--tx)'}:undefined}>{s.label}</span>
         </div>
       ))}
+      {detail&&<p className="proc-detail">{detail}</p>}
+      <p className="proc-hint">Не закрывайте вкладку до завершения.</p>
+      <p className="proc-elapsed">Прошло: {formatProcElapsed(elapsedSec)}</p>
     </div></div>
   );
 }
@@ -1273,7 +1295,8 @@ function HistoryPage({onOpen,refreshKey}){
 function App(){
   const[user,setUser]=useState(()=>localStorage.getItem(USER_KEY)||localStorage.getItem('hr_u'));
   const[view,setView]=useState('upload'); // upload | processing | workspace
-  const[step,setStep]=useState(0);
+  const[procElapsed,setProcElapsed]=useState(0);
+  const[procStatus,setProcStatus]=useState(null);
   const[wsData,setWsData]=useState(null);
   const[error,setError]=useState('');
   const[settings,setSettings]=useState(false);
@@ -1285,8 +1308,15 @@ function App(){
 
   async function handleProcess({type,file,url}){
     setMainTab('form');
-    setView('processing');setStep(0);setError('');
-    const timer=setInterval(()=>setStep(s=>Math.min(s+1,3)),7000);
+    setView('processing');setProcElapsed(0);setProcStatus({stage:'upload',message:'Запуск…'});setError('');
+    const timer=setInterval(()=>setProcElapsed(s=>s+1),1000);
+    const poll=setInterval(async()=>{
+      try{
+        const r=await apiFetch('/api/process/status');
+        const d=await fetchJsonResponse(r);
+        if(d.active)setProcStatus(d);
+      }catch(_){/* polling */}
+    },1200);
     try{
       let r;
       if(type==='file'){
@@ -1303,6 +1333,8 @@ function App(){
       setError(e.message);setView('upload');
     }finally{
       clearInterval(timer);
+      clearInterval(poll);
+      setProcStatus(null);
     }
   }
 
@@ -1359,10 +1391,9 @@ function App(){
 
       <div className={'main-area'+(mainTab==='form'&&view==='workspace'?' main-area--workspace':'')}>
         {error&&<div style={{padding:'.8rem 1.2rem',background:'var(--rd-dim)',color:'var(--rd)',fontSize:'.85rem',borderBottom:'1px solid rgba(248,113,113,.15)'}}>⚠ {error}<button className="btn btn-g" aria-label="Скрыть ошибку" title="Скрыть ошибку" onClick={()=>setError('')} style={{marginLeft:'.5rem',verticalAlign:'middle'}}>{I.x}</button></div>}
-        {error&&<div style={{padding:'.8rem 1.2rem',background:'var(--rd-dim)',color:'var(--rd)',fontSize:'.85rem',borderBottom:'1px solid rgba(248,113,113,.15)'}}>⚠ {error}<button className="btn btn-g" aria-label="Закрыть ошибку" title="Закрыть ошибку" onClick={()=>setError('')} style={{marginLeft:'.5rem',verticalAlign:'middle'}}>{I.x}</button></div>}
 
         {mainTab==='form'&&view==='upload'&&<UploadPage onProcess={handleProcess}/>}
-        {mainTab==='form'&&view==='processing'&&<ProcessingPage step={step}/>}
+        {mainTab==='form'&&view==='processing'&&<ProcessingPage elapsedSec={procElapsed} status={procStatus}/>}
         {mainTab==='form'&&view==='workspace'&&wsData&&<Workspace data={wsData} onReset={handleReset}/>}
         {mainTab==='history'&&<HistoryPage onOpen={openReportFromHistory} refreshKey={historyRefresh}/>}
       </div>
