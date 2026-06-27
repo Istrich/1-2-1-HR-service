@@ -392,8 +392,8 @@ function PanelSearchToolbar({value,onChange,matchCount,currentIdx,onPrev,onNext,
         <>
           <span className="search-meta">{matchCount===0?'Нет совпадений':`${Math.min(currentIdx+1,matchCount)} / ${matchCount}`}</span>
           <div className="search-nav">
-            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onPrev} title="Предыдущее вхождение">‹</button>
-            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onNext} title="Следующее вхождение">›</button>
+            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onPrev} title="Предыдущее вхождение" aria-label="Предыдущее вхождение">‹</button>
+            <button type="button" className="btn btn-s" disabled={matchCount===0} onClick={onNext} title="Следующее вхождение" aria-label="Следующее вхождение">›</button>
           </div>
         </>
       )}
@@ -1241,7 +1241,7 @@ function HistoryPage({onOpen,refreshKey}){
               onKeyDown={e=>{if((e.key==='Enter'||e.key===' ')&&!(editing&&editing.id===it.id)){e.preventDefault();onOpen(it.id)}}}
               onClick={()=>{if(editing&&editing.id===it.id)return;onOpen(it.id)}}>
               {editing&&editing.id===it.id?(
-                <input className="title-edit" value={editing.value}
+                <input className="title-edit" aria-label="Редактировать название" value={editing.value}
                   onChange={e=>setEditing(ed=>({...ed,value:e.target.value}))}
                   onClick={e=>e.stopPropagation()}
                   onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commitRename()}}}
