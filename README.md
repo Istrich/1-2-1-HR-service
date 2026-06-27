@@ -224,26 +224,17 @@ pyinstaller --noconfirm --windowed --onedir --name HR121Desktop `
 ```
 hr121-web/
 ├── app.py               # FastAPI-сервер (основная логика)
+├── desktop_main.py      # Desktop-обёртка (Windows)
 ├── Dockerfile           # образ приложения (данные — тома в compose)
 ├── docker-compose.yml   # тома: .env, outputs, кэш Whisper на хосте
 ├── static/
 │   └── index.html       # React SPA (фронтенд)
-├── outputs/             # при запуске без Docker; в Docker — каталог из HR121_DATA_DIR
-├── data/                # каталог по умолчанию для Docker (в .gitignore)
+├── outputs/             # при запуске без Docker; в .gitignore
+├── data/                # каталог по умолчанию для Docker; в .gitignore
 ├── scripts/             # init-docker-data.sh, docker-start-on-login.sh
 ├── deploy/macos/        # пример plist для автозапуска Docker-стека
-├── docs/                # Воркфлоу, планы, шаблоны ТЗ
 ├── requirements.txt
 ├── .env                 # Конфиг (не коммитить!)
 ├── .env.example
-├── context.md           # Контекст проекта (для агентов и команды)
-├── AGENTS.md            # Роли агентов (кратко)
 └── README.md
 ```
-
-## Документация для разработки
-
-- [context.md](context.md) — актуальный обзор стека, API и ограничений.
-- [docs/WORKFLOW.md](docs/WORKFLOW.md) — этапы работы, роли, артефакты.
-- [docs/plans/](docs/plans/) — архитектурные планы (`TEMPLATE.md` — шаблон).
-- [docs/specs/](docs/specs/) — технические задания (`TEMPLATE.md` — шаблон).
