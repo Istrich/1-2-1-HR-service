@@ -138,20 +138,6 @@ docker compose up -d --build
 
 ---
 
-## Windows Desktop (окно вместо браузера)
-
-Веб-режим (`python app.py`) не меняется. Desktop — обёртка `pywebview` над тем же сервером.
-
-```powershell
-pip install -r requirements-desktop.txt
-python desktop_main.py
-```
-
-Сборка `.exe`: `.\build_windows_exe.bat` или см. `build_windows_exe.bat`.  
-Нужен [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) на целевой машине.
-
----
-
 ## API (кратко)
 
 Префикс `/api`, защищённые маршруты — заголовок `Authorization: Bearer <jwt>`.
@@ -180,10 +166,9 @@ python desktop_main.py
 ```
 1-2-1-HR-service/
 ├── app.py                 # FastAPI: API, пайплайн, промты
-├── desktop_main.py        # Desktop-launcher (Windows)
 ├── static/index.html      # SPA (React 18, CDN)
 ├── requirements.txt
-├── requirements-desktop.txt
+├── bootstrap_windows_env.bat  # Опционально: Python/ffmpeg через winget
 ├── Dockerfile
 ├── docker-compose.yml
 ├── scripts/               # Docker: init, автозапуск

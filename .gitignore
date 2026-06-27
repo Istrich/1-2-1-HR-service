@@ -27,13 +27,11 @@ __pycache__/
 htmlcov/
 .cache/
 
-# Packaging artifacts
+# Build / packaging artifacts
 build/
 dist/
 *.egg-info/
 *.spec
-
-# Windows desktop build artifacts
 *.exe
 
 # IDE / editor / OS

@@ -66,11 +66,15 @@ if "%OK%"=="0" (
     echo.
     echo Dependencies were installed, but current terminal may not see PATH changes yet.
     echo Close this terminal and open a new one, then run:
-    echo   build_windows_exe.bat
+    echo   pip install -r requirements.txt ^&^& python app.py
     exit /b 0
 )
 
 echo.
-echo Bootstrap complete. Next step:
-echo   build_windows_exe.bat
+echo Bootstrap complete. Next steps:
+echo   python -m venv .venv
+echo   .\.venv\Scripts\Activate.ps1
+echo   pip install -r requirements.txt
+echo   copy .env.example .env
+echo   python app.py
 exit /b 0
